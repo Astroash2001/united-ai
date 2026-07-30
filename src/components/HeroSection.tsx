@@ -1,246 +1,338 @@
-import { useState, useRef, ChangeEvent, DragEvent } from "react";
-import { FolderOpen, Loader2, FileText, CheckCircle2, AlertCircle } from "lucide-react";
+import { useState, useRef, ChangeEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowRight, Copy } from "lucide-react";
+import Waves from "@/components/Waves";
 import { summarizeFile } from "@/services/api";
 
 const HeroSection = () => {
-  // State management
+  const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [summary, setSummary] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [copied, setCopied] = useState(false);
+  const [showWorkspace, setShowWorkspace] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  
-  // Hidden file input ref
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  /**
-   * Handle file selection from button click
-   */
   const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      processFile(file);
-    }
+    event.target.blur();
+    if (file) processFile(file);
   };
 
-  /**
-   * Handle drag over event
-   */
-  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setIsDragging(true);
-  };
-
-  /**
-   * Handle drag leave event
-   */
-  const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setIsDragging(false);
-  };
-
-  /**
-   * Handle file drop
-   */
-  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setIsDragging(false);
-    
-    const file = event.dataTransfer.files?.[0];
-    if (file) {
-      processFile(file);
-    }
-  };
-
-  /**
-   * Process and upload the selected file
-   */
   const processFile = async (file: File) => {
-    // Reset previous states
     setError("");
     setSummary("");
     setSelectedFile(file);
     setIsLoading(true);
+    setShowWorkspace(true);
 
     try {
-      // Call API to summarize file
       const summaryText = await summarizeFile(file);
-      
-      // Update state with summary
       setSummary(summaryText);
-      
     } catch (err) {
-      // Handle errors
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
       setError(errorMessage);
       setSelectedFile(null);
-      
     } finally {
-      // Always stop loading
       setIsLoading(false);
     }
   };
 
-  /**
-   * Trigger file input click
-   */
-  const handleButtonClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  /**
-   * Reset everything and start over
-   */
   const handleReset = () => {
     setSelectedFile(null);
     setSummary("");
     setError("");
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processFile(file);
     }
   };
 
+  const copySummary = () => {
+    navigator.clipboard.writeText(summary);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const features = [
+    {
+      id: "summarizer",
+      title: "01. DOCUMENT SUMMARIZER",
+      tag: "PDF / TXT ENGINE",
+      desc: "Extract key takeaways, bullet abstracts, and figures from multi-page documents instantly.",
+      action: () => {
+        setShowWorkspace(true);
+        setTimeout(() => {
+          document.getElementById("workspace-area")?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
+      },
+      btnText: "[ LAUNCH SUMMARIZER ]",
+      badge: "CORE ENGINE",
+    },
+    {
+      id: "audio",
+      title: "02. AUDIO SPEECH ENGINE",
+      tag: "WHISPER & DEEPGRAM",
+      desc: "Convert MP3, WAV, M4A, and FLAC recordings into verbatim transcripts with chapter flags.",
+      action: () => navigate("/audio"),
+      btnText: "[ OPEN AUDIO WORKSPACE ]",
+      badge: "SPEECH AI",
+    },
+    {
+      id: "video",
+      title: "03. VIDEO MEDIA PARSER",
+      tag: "MP4 / MOV ENGINE",
+      desc: "Process MP4, MOV, and MKV video tracks into executive meeting minutes and timestamps.",
+      action: () => navigate("/video"),
+      btnText: "[ OPEN VIDEO WORKSPACE ]",
+      badge: "VIDEO AI",
+    },
+    {
+      id: "chat",
+      title: "04. INTERACTIVE RAG CHAT",
+      tag: "DOCUMENT CONVERSATION",
+      desc: "Ask specific questions, extract figures, and chat directly with your document context.",
+      action: () => navigate("/chat-with-document"),
+      btnText: "[ LAUNCH CHAT WORKSPACE ]",
+      badge: "RAG CHAT",
+    },
+  ];
+
   return (
-    <section className="gradient-hero pt-32 pb-20 min-h-[700px] flex flex-col items-center justify-center">
-      <div className="container-custom text-center">
-        <h1 className="heading-1 mb-6">AI Summarizer</h1>
-        <p className="text-body max-w-3xl mx-auto mb-12">
-          Summarize PDFs, Audio, Video, Paragraphs, and Texts instantly using AI. Generate summaries from your PDFs online for free.
-        </p>
-        
-        {/* File Upload Area */}
-        <div className="max-w-3xl mx-auto mb-8">
-          <div 
-            className={`bg-gradient-to-br from-cyan-100/90 to-blue-200/80 rounded-3xl p-16 shadow-2xl border-2 backdrop-blur-sm transition-all duration-300 ${
-              isDragging 
-                ? 'border-cyan-500 scale-105' 
-                : 'border-white/20'
-            }`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <div className="flex flex-col items-center justify-center space-y-8">
-              {/* Icon - changes based on state */}
-              <div className="relative">
-                {isLoading ? (
-                  <Loader2 className="w-32 h-32 text-blue-500 animate-spin" strokeWidth={1.5} />
-                ) : summary ? (
-                  <CheckCircle2 className="w-32 h-32 text-green-500" strokeWidth={1.5} />
-                ) : error ? (
-                  <AlertCircle className="w-32 h-32 text-red-500" strokeWidth={1.5} />
-                ) : (
-                  <FolderOpen className="w-32 h-32 text-blue-400/80" strokeWidth={1} />
-                )}
+    <div className="space-y-6">
+      {/* Top Hero Grid: 2 Columns */}
+      <div className="retro-frame p-4 md:p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          
+          {/* Left Column: Description & Mission */}
+          <div className="lg:col-span-7 space-y-4">
+            <div className="inline-block border border-[#1C1C1C] bg-[#1C1C1C] text-[#E3DFCE] px-3 py-1 text-xs font-mono uppercase tracking-widest font-bold">
+              UNITED AI // KNOWLEDGE OPERATING SYSTEM
+            </div>
+
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-[#1C1C1C] leading-snug uppercase">
+              Synthesize Knowledge <br />
+              <span className="inline-block bg-[#1C1C1C] text-[#E3DFCE] px-3 py-1 mt-2">
+                At Scale.
+              </span>
+            </h1>
+
+            <p className="text-lg sm:text-xl font-vt323 leading-relaxed text-[#222222] max-w-2xl font-medium">
+              *UNITED AI is an all-in-one intelligence suite featuring zero-latency live speech transcription, multi-format video parsing, instant PDF/TXT summarization, and interactive RAG document dialogue—delivering maximum precision with zero permanent data retention.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-3 pt-3 text-xs sm:text-sm font-mono">
+              <button
+                onClick={() => {
+                  setShowWorkspace(true);
+                  setTimeout(() => {
+                    document.getElementById("workspace-area")?.scrollIntoView({ behavior: "smooth" });
+                  }, 100);
+                }}
+                className="btn-retro-primary px-6 py-3 flex items-center gap-2 text-sm"
+              >
+                <span>[ START DOCUMENT SUMMARIZER ]</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => navigate("/chat-with-document")}
+                className="btn-retro-primary px-6 py-3 flex items-center gap-2 text-sm"
+              >
+                <span>[ CHAT WITH PDF ]</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Right Column: Interactive Waves Physics Canvas */}
+          <div className="lg:col-span-5 flex justify-center">
+            <div className="retro-panel p-2 border border-[#1C1C1C] text-center w-full flex flex-col items-center justify-center bg-[#0B0B0C] h-[320px] overflow-hidden relative">
+              <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#A5A7AD] mb-1 border-b border-[#2A2B30] w-full pb-1 z-10 bg-[#0B0B0C]/80 backdrop-blur-sm">
+                INTERACTIVE WAVE CANVAS (MOVE CURSOR):
               </div>
               
-              {/* Status Text */}
-              {selectedFile && !error && (
-                <div className="text-gray-700">
-                  <FileText className="w-6 h-6 inline mr-2" />
-                  <span className="font-medium">{selectedFile.name}</span>
-                </div>
-              )}
-              
-              {/* Hidden file input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.txt"
-                onChange={handleFileSelect}
-                className="hidden"
-                disabled={isLoading}
+              <Waves
+                lineColor="#FFFFFF"
+                backgroundColor="#0B0B0C"
+                waveSpeedX={0.0125}
+                waveSpeedY={0.005}
+                waveAmpX={35}
+                waveAmpY={20}
+                friction={0.925}
+                tension={0.005}
+                maxCursorMove={100}
+                xGap={10}
+                yGap={20}
               />
-              
-              {/* Choose File Button or Reset */}
-              {summary ? (
-                <button 
-                  onClick={handleReset}
-                  className="bg-green-500 hover:bg-green-600 text-white px-12 py-3 rounded-full text-lg font-medium transition-all duration-300 hover:scale-105 shadow-lg"
-                >
-                  Summarize Another File
-                </button>
-              ) : (
-                <button 
-                  onClick={handleButtonClick}
+
+              <div className="text-[10px] font-mono text-[#A5A7AD] border-t border-[#2A2B30] w-full pt-1 z-10 bg-[#0B0B0C]/80 backdrop-blur-sm">
+                *SPRING PHYSICS SIMULATION
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* Functionality Cards Section */}
+      <div className="retro-frame p-4 md:p-6">
+        <div className="text-xs sm:text-sm font-mono font-bold uppercase tracking-wider text-[#555555] border-b border-[#1C1C1C] pb-2 mb-4 flex justify-between items-center">
+          <span>[ SELECT FUNCTIONALITY WORKSPACE ]</span>
+          <span>4 SYSTEM MODULES</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {features.map((feature) => (
+            <div
+              key={feature.id}
+              onClick={feature.action}
+              className="retro-panel p-4 border border-[#1C1C1C] flex flex-col justify-between cursor-pointer hover:bg-[#1C1C1C] hover:text-[#E3DFCE] group transition-all"
+            >
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-xs font-mono">
+                  <span className="px-2 py-0.5 border border-current font-bold">{feature.badge}</span>
+                  <span className="text-[#555555] group-hover:text-[#E3DFCE]">{feature.tag}</span>
+                </div>
+
+                <h3 className="text-sm font-bold font-mono tracking-tight leading-tight border-b border-current pb-1 mt-2">
+                  {feature.title}
+                </h3>
+
+                <p className="text-sm sm:text-base font-vt323 leading-relaxed text-[#333333] group-hover:text-[#E3DFCE]">
+                  *{feature.desc}
+                </p>
+              </div>
+
+              <div className="mt-4 pt-2 border-t border-current text-xs font-mono font-bold flex items-center justify-between">
+                <span>{feature.btnText}</span>
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Document Summarizer Active Workspace Area */}
+      {showWorkspace && (
+        <div id="workspace-area" className="retro-frame p-4 md:p-6 animate-fade-in space-y-4">
+          <div className="text-xs sm:text-sm font-mono font-bold uppercase tracking-wider text-[#555555] border-b border-[#1C1C1C] pb-2 flex justify-between items-center">
+            <span>[ DOCUMENT SUMMARIZER WORKSPACE ]</span>
+            <button onClick={() => setShowWorkspace(false)} className="underline hover:text-[#1C1C1C]">
+              [ CLOSE WORKSPACE ]
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            {/* Input Dropzone */}
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`retro-panel p-6 text-center flex flex-col justify-between transition-all ${
+                isDragging ? "bg-[#0000FF] text-white border-white scale-[1.01]" : ""
+              }`}
+            >
+              <div className="space-y-4">
+                <div className={`border p-4 font-mono text-xs sm:text-sm ${isDragging ? "border-white bg-[#0000FF]" : "border-[#1C1C1C] bg-[#D4D0BD]"}`}>
+                  <pre className="text-xs sm:text-sm leading-tight font-bold">
+{`+------------------------------------+
+| ${isDragging ? "  [ DROP FILE HERE TO UPLOAD ]    " : "  [ UPLOAD PDF, TXT OR IMAGE ]    "} |
+|   MAX FILE SIZE: 10 MB (OCR READY) |
++------------------------------------+`}
+                  </pre>
+                </div>
+
+                {selectedFile && !error && (
+                  <div className="border border-[#1C1C1C] bg-[#1C1C1C] text-[#E3DFCE] p-3 text-xs sm:text-sm font-mono text-left">
+                    ▶ FILE: {selectedFile.name} <br />
+                    ▶ SIZE: {(selectedFile.size / 1024).toFixed(1)} KB
+                  </div>
+                )}
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.txt,.png,.jpg,.jpeg,.webp"
+                  onChange={handleFileSelect}
+                  className="hidden"
                   disabled={isLoading}
-                  className={`bg-cyan-400 hover:bg-cyan-500 text-white px-12 py-3 rounded-full text-lg font-medium transition-all duration-300 shadow-lg ${
-                    isLoading 
-                      ? 'opacity-50 cursor-not-allowed' 
-                      : 'hover:scale-105'
-                  }`}
-                >
-                  {isLoading ? 'Summarizing...' : 'Choose File'}
-                </button>
-              )}
-              
-              {/* Loading or Drag & Drop Text */}
-              {isLoading ? (
-                <p className="text-gray-700 text-base font-medium animate-pulse">
-                  AI is analyzing your document...
-                </p>
-              ) : (
-                <p className="text-gray-600 text-base">
-                  or drag & drop the files here
-                </p>
-              )}
-              
-              {/* Supported formats */}
-              <p className="text-gray-500 text-sm">
-                Supports PDF and TXT files (max 10MB)
-              </p>
+                />
+
+                {summary ? (
+                  <button onClick={handleReset} className="btn-retro-secondary px-7 py-3 text-sm w-full">
+                    [ SUMMARIZE ANOTHER FILE ]
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isLoading}
+                    className="btn-retro-primary px-9 py-3.5 text-sm w-full"
+                  >
+                    {isLoading ? "[ ANALYZING & RUNNING OCR... ]" : "[ SELECT PDF, TXT, OR IMAGE FILE ]"}
+                  </button>
+                )}
+              </div>
+
+              <div className="text-xs font-mono text-[#555555] pt-4">
+                *SYSTEM STATUS: READY FOR SYNTHESIS
+              </div>
+            </div>
+
+            {/* Output Stream */}
+            <div className="lg:col-span-6 retro-panel p-6 flex flex-col justify-between">
+              <div>
+                <div className="flex justify-between items-center mb-3 pb-1 border-b border-[#1C1C1C]">
+                  <span className="text-xs sm:text-sm font-mono font-bold">EXECUTIVE_SUMMARY.TXT:</span>
+                  {summary && (
+                    <button onClick={copySummary} className="btn-retro-secondary px-3 py-1 text-xs">
+                      {copied ? "[COPIED]" : "[COPY SUMMARY]"}
+                    </button>
+                  )}
+                </div>
+
+                {error && (
+                  <div className="border border-[#1C1C1C] bg-[#FF2200] text-white p-3 text-xs sm:text-sm font-mono">
+                    *ERROR: {error}
+                  </div>
+                )}
+
+                {summary ? (
+                  <div className="border border-[#1C1C1C] bg-[#FFFFFF] p-4 text-sm sm:text-base font-mono leading-relaxed max-h-96 overflow-y-auto whitespace-pre-wrap">
+                    {summary}
+                  </div>
+                ) : (
+                  <div className="border border-[#1C1C1C] bg-[#D4D0BD] p-6 text-center text-sm font-vt323 text-[#555555]">
+                    *Upload a document or click [SELECT PDF OR TXT FILE] to generate executive AI summary output.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="max-w-3xl mx-auto mb-8">
-            <div className="bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded-2xl flex items-start gap-3">
-              <AlertCircle className="w-6 h-6 flex-shrink-0 mt-0.5" />
-              <div className="text-left">
-                <h3 className="font-semibold mb-1">Upload Failed</h3>
-                <p className="text-sm">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Summary Display */}
-        {summary && (
-          <div className="max-w-4xl mx-auto mb-8 animate-fade-in">
-            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-8 shadow-2xl border border-slate-700">
-              <div className="flex items-center gap-3 mb-6">
-                <CheckCircle2 className="w-8 h-8 text-green-400" />
-                <h2 className="text-2xl font-bold text-white">Summary</h2>
-              </div>
-              
-              <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700">
-                <p className="text-gray-200 text-lg leading-relaxed whitespace-pre-wrap">
-                  {summary}
-                </p>
-              </div>
-              
-              {/* Copy to Clipboard Button */}
-              <div className="mt-6 flex gap-4">
-                <button
-                  onClick={() => navigator.clipboard.writeText(summary)}
-                  className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-300 hover:scale-105"
-                >
-                  Copy Summary
-                </button>
-                <button
-                  onClick={handleReset}
-                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-300 hover:scale-105"
-                >
-                  New Summary
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </section>
+      )}
+    </div>
   );
 };
 

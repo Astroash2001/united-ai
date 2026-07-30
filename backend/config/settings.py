@@ -9,23 +9,19 @@ from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
 
-# Load environment variables from .env file
-load_dotenv()
-
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+load_dotenv(BASE_DIR / '.env')
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-change-this-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    "ai-summarizer-pro-omy1.onrender.com",
-]
+ALLOWED_HOSTS = ["*"]
 
 # Application definition
 INSTALLED_APPS = [
@@ -43,8 +39,6 @@ INSTALLED_APPS = [
     
     # Local apps
     'summarizer',
-
-    
 ]
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",  # MUST BE FIRST
@@ -59,6 +53,23 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'config.urls'
+
+# ASGI Configuration
+ASGI_APPLICATION = 'config.asgi.application'
+
+# Channel Layers (in-memory for development)
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
+
+# Channel Layers (in-memory for development)
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
 
 TEMPLATES = [
     {
@@ -135,13 +146,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS Configuration - Allow frontend to make requests
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "https://ai-summarizer-pro-frontend.onrender.com",
-]
-
-
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 # REST Framework Configuration
@@ -160,18 +165,23 @@ REST_FRAMEWORK = {
 }
 
 # File Upload Settings
-FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
-DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50 MB
 
 # Allowed file types for upload
-ALLOWED_FILE_TYPES = ['pdf', 'txt']
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+ALLOWED_FILE_TYPES = ['pdf', 'txt', 'png', 'jpg', 'jpeg', 'webp', 'bmp', 'tiff', 'mp3', 'wav', 'm4a', 'ogg', 'webm', 'mp4', 'avi', 'mov', 'mkv']
+ALLOWED_AUDIO_TYPES = ['mp3', 'wav', 'm4a', 'ogg', 'webm', 'aac', 'flac']
+ALLOWED_VIDEO_TYPES = ['mp4', 'avi', 'mov', 'mkv', 'webm']
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
 # OpenAI Configuration
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini')
-OPENAI_MAX_TOKENS = int(os.environ.get('OPENAI_MAX_TOKENS', '150'))
+OPENAI_MAX_TOKENS = int(os.environ.get('OPENAI_MAX_TOKENS', '1000'))
 OPENAI_TEMPERATURE = float(os.environ.get('OPENAI_TEMPERATURE', '0.7'))
+
+# Deepgram Configuration
+DEEPGRAM_API_KEY = os.environ.get('DEEPGRAM_API_KEY', '')
 
 # Security Settings (Uncomment for production)
 if not DEBUG:

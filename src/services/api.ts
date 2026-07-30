@@ -3,7 +3,10 @@
  * Handles file uploads and summarization requests
  */
 
-const API_BASE_URL = "https://ai-summarizer-pro-omy1.onrender.com/api";
+const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const API_BASE_URL = isLocalhost 
+  ? (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api')
+  : (import.meta.env.VITE_API_URL || 'https://ai-summarizer-pro-omy1.onrender.com/api');
 
 
 /**
@@ -42,10 +45,12 @@ export async function summarizeFile(file: File): Promise<string> {
     throw new Error('No file selected');
   }
 
-  // Check file type
-  const allowedTypes = ['application/pdf', 'text/plain'];
-  if (!allowedTypes.includes(file.type)) {
-    throw new Error('Invalid file type. Only PDF and TXT files are supported.');
+  // Check file type (MIME type or file extension)
+  const isPdf = file.type === 'application/pdf' || file.type === 'application/x-pdf' || file.name.toLowerCase().endsWith('.pdf');
+  const isTxt = file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt');
+
+  if (!isPdf && !isTxt) {
+    throw new Error('Invalid file type. Only PDF (.pdf) and TXT (.txt) files are supported.');
   }
 
   // Check file size (10MB limit)

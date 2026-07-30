@@ -14,7 +14,10 @@ export interface ChatResponse {
   status: string;
 }
 
-const API_BASE_URL = "https://ai-summarizer-pro-omy1.onrender.com/api";
+const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const API_BASE_URL = isLocalhost 
+  ? (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api')
+  : (import.meta.env.VITE_API_URL || 'https://ai-summarizer-pro-omy1.onrender.com/api');
 
 export async function extractText(file: File): Promise<ExtractTextResponse> {
   const formData = new FormData();
