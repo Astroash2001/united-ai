@@ -42,6 +42,13 @@ const ChatWithDocument = () => {
       return;
     }
 
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      setError("SYSTEM REJECTED: Document file exceeds the maximum allowed size of 10MB.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      setIsUploading(false);
+      return;
+    }
+
     try {
       const data = await extractText(selectedFile);
       setFile(selectedFile);
@@ -143,13 +150,16 @@ const ChatWithDocument = () => {
       <main className="py-4">
         <div className="max-w-5xl mx-auto">
           {/* Header Bar */}
-          <div className="retro-panel p-3 mb-4 text-center">
-            <div className="text-xs font-mono font-bold uppercase tracking-wider text-[#555555]">
-              [ INTERACTIVE RAG CHAT WORKSPACE // UNITE.TXT ]
+          <div className="retro-panel p-3 mb-4 text-center border-b-[3px] border-[#1C1C1C]">
+            <div className="text-xs font-mono font-bold uppercase tracking-wider text-[#1C1C1C]">
+              [ INTERACTIVE RAG CHAT WORKSPACE // UNITED AI ]
             </div>
-            <p className="text-xs font-vt323 mt-1">
+            <p className="text-xs font-vt323 mt-1 text-[#555555]">
               *Upload PDF or TXT to query specific details in natural conversational dialogue.
             </p>
+            <div className="mt-2 inline-block border border-[#1C1C1C] bg-[#FF9933] text-[#1C1C1C] px-3 py-1 text-[10px] font-mono font-bold shadow-[2px_2px_0px_#1C1C1C]">
+              [ ⚠️ SYSTEM LIMIT: CURRENT CONTEXT WINDOW CAPPED AT ~3-6 PAGES (8,000 CHARACTERS) ]
+            </div>
           </div>
 
           {!file ? (

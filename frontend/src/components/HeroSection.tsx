@@ -25,6 +25,13 @@ const HeroSection = () => {
   const processFile = async (file: File) => {
     setError("");
     setSummary("");
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError("SYSTEM REJECTED: Document file exceeds the maximum allowed size of 10MB.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setSelectedFile(file);
     setIsLoading(true);
     setShowWorkspace(true);
@@ -242,6 +249,10 @@ const HeroSection = () => {
             <button onClick={() => setShowWorkspace(false)} className="underline hover:text-[#1C1C1C]">
               [ CLOSE WORKSPACE ]
             </button>
+          </div>
+
+          <div className="mt-2 inline-block border border-[#1C1C1C] bg-[#FF9933] text-[#1C1C1C] px-3 py-1 text-[10px] font-mono font-bold shadow-[2px_2px_0px_#1C1C1C]">
+            [ ⚠️ SYSTEM LIMIT: SUMMARIZATION CONTEXT CAPPED AT ~4-6 PAGES (12,000 CHARACTERS) ]
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">

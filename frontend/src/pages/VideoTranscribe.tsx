@@ -23,6 +23,13 @@ const VideoTranscribe = () => {
     setError("");
     setTranscript("");
     setSummary("");
+
+    if (file.size > 50 * 1024 * 1024) {
+      setError("SYSTEM REJECTED: Video file exceeds the maximum allowed size of 50MB.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setSelectedFile(file);
     setIsLoading(true);
 
@@ -101,13 +108,16 @@ const VideoTranscribe = () => {
 
       <main className="py-4">
         <div className="max-w-5xl mx-auto space-y-4">
-          <div className="retro-panel p-3 text-center">
-            <div className="text-xs font-mono font-bold uppercase tracking-wider text-[#555555]">
+          <div className="retro-panel p-3 text-center border-b-[3px] border-[#1C1C1C]">
+            <div className="text-xs font-mono font-bold uppercase tracking-wider text-[#1C1C1C]">
               [ VIDEO MEDIA ENGINE // TRANSCRIPTION & CHAPTER FLAGS ]
             </div>
-            <p className="text-xs font-vt323 mt-1">
+            <p className="text-xs font-vt323 mt-1 text-[#555555]">
               *Upload MP4, AVI, MOV, or MKV files to convert speech into structured text and timestamped chapters.
             </p>
+            <div className="mt-2 inline-block border border-[#1C1C1C] bg-[#FF9933] text-[#1C1C1C] px-3 py-1 text-[10px] font-mono font-bold shadow-[2px_2px_0px_#1C1C1C]">
+              [ ⚠️ SYSTEM LIMIT: MAXIMUM VIDEO UPLOAD CAPPED AT 50MB ]
+            </div>
           </div>
 
           <div

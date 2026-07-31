@@ -19,8 +19,8 @@ const Header = () => {
         {/* Left Side: Pixel Logo Icon & Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto">
           {/* Retro Pixel Icon Box */}
-          <Link to="/" className="border border-[#1C1C1C] bg-[#E3DFCE] px-2 py-1 flex items-center gap-1 hover:bg-[#1C1C1C] hover:text-[#E3DFCE] transition-colors shrink-0">
-            <span className="font-pixel text-[10px] tracking-tighter">×+×<br />+×+</span>
+          <Link to="/" className="group border-[2px] border-[#1C1C1C] bg-[#E3DFCE] w-8 h-8 flex items-center justify-center shadow-[2px_2px_0px_#1C1C1C] hover:shadow-[4px_4px_0px_#1C1C1C] hover:-translate-y-0.5 hover:-translate-x-0.5 transition-all shrink-0">
+            <span className="font-mono text-[18px] font-black text-[#0000FF] group-hover:animate-pulse">U</span>
           </Link>
 
           {/* Nav Tabs */}

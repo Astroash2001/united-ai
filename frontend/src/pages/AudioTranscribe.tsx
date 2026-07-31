@@ -333,6 +333,13 @@ const AudioTranscribe = () => {
     setError("");
     setTranscript("");
     setSummary("");
+
+    if (file.size > 25 * 1024 * 1024) {
+      setError("SYSTEM REJECTED: Audio file exceeds the maximum allowed size of 25MB.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setSelectedFile(file);
     setIsLoading(true);
 
@@ -424,13 +431,16 @@ const AudioTranscribe = () => {
         <div className="max-w-5xl mx-auto space-y-5">
           
           {/* Header Panel */}
-          <div className="retro-panel p-4 text-center">
-            <div className="text-sm font-mono font-bold uppercase tracking-wider text-[#555555]">
+          <div className="retro-panel p-4 text-center border-b-[3px] border-[#1C1C1C]">
+            <div className="text-sm font-mono font-bold uppercase tracking-wider text-[#1C1C1C]">
               [ AUDIO SPEECH ENGINE // LIVE VOICE RECORD & TRANSCRIPTION ]
             </div>
             <p className="text-sm font-vt323 mt-1 text-[#333333]">
               *Speak into your microphone to view live frequency wave animation and real-time word streaming.
             </p>
+            <div className="mt-3 inline-block border border-[#1C1C1C] bg-[#FF9933] text-[#1C1C1C] px-3 py-1 text-[10px] font-mono font-bold shadow-[2px_2px_0px_#1C1C1C]">
+              [ ⚠️ SYSTEM LIMIT: MAXIMUM AUDIO UPLOAD IS 25MB (~20 MINUTES) ]
+            </div>
           </div>
 
           {/* Mode Switcher Buttons */}

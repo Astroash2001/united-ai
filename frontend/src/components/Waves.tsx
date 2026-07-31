@@ -347,18 +347,35 @@ const Waves: React.FC<WavesProps> = ({
       const { width, height } = boundingRef.current;
       const isInsideCanvas = mouse.x >= 0 && mouse.x <= width && mouse.y >= 0 && mouse.y <= height;
 
-      // Ensure the previous sound is completely finished (paused) before playing a new one
-      const isAudioFinished = audioLeftToRight.paused && audioRightToLeft.paused;
+      // Directional sound interruption logic
+      if (isInsideCanvas && mouse.v > 12 && elapsed - lastPluckTime > 150) {
+        const isSwipingRight = dx > 0;
+        const isSwipingLeft = dx < 0;
 
-      // Play directional pluck sound based on swipe velocity and direction
-      if (isInsideCanvas && isAudioFinished && mouse.v > 12 && elapsed - lastPluckTime > 150) {
-        lastPluckTime = elapsed;
-        if (dx > 0) {
-          audioLeftToRight.currentTime = 0;
-          audioLeftToRight.play().catch(() => {});
-        } else if (dx < 0) {
-          audioRightToLeft.currentTime = 0;
-          audioRightToLeft.play().catch(() => {});
+        if (isSwipingRight) {
+          // Interrupt the opposite sound if playing
+          if (!audioRightToLeft.paused) {
+            audioRightToLeft.pause();
+            audioRightToLeft.currentTime = 0;
+          }
+          // Only play if this direction's sound is NOT already playing
+          if (audioLeftToRight.paused) {
+            lastPluckTime = elapsed;
+            audioLeftToRight.currentTime = 0;
+            audioLeftToRight.play().catch(() => {});
+          }
+        } else if (isSwipingLeft) {
+          // Interrupt the opposite sound if playing
+          if (!audioLeftToRight.paused) {
+            audioLeftToRight.pause();
+            audioLeftToRight.currentTime = 0;
+          }
+          // Only play if this direction's sound is NOT already playing
+          if (audioRightToLeft.paused) {
+            lastPluckTime = elapsed;
+            audioRightToLeft.currentTime = 0;
+            audioRightToLeft.play().catch(() => {});
+          }
         }
       }
 
