@@ -154,3 +154,32 @@
   background-image: radial-gradient(#1C1C1C 1px, transparent 0);
   background-size: 4px 4px;
 }
+
+/* Custom Retro Brutalist Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #D4D0BD;
+  border-left: 1px solid #1C1C1C;
+  border-top: 1px solid #1C1C1C;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1C1C1C;
+  border: 1px solid #1C1C1C;
+  border-radius: 0px !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #0000FF;
+}
+
+/* Firefox Scrollbar Styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1C1C1C #D4D0BD;
+}
+

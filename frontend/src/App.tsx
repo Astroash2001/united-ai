@@ -9,6 +9,8 @@ import ChatWithDocument from "./pages/ChatWithDocument";
 import AudioTranscribe from "./pages/AudioTranscribe";
 import VideoTranscribe from "./pages/VideoTranscribe";
 import NotFound from "./pages/NotFound";
+import { AIBrainWidget } from "@/components/AIBrainWidget";
+import { ScrollToTop } from "@/components/ScrollToTop";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +44,8 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <ScrollToTop />
+        <AIBrainWidget />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

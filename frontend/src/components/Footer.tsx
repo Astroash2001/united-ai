@@ -118,7 +118,7 @@ const Footer = () => {
       {/* Bottom Bar */}
       <div className="pt-3 flex flex-col sm:flex-row items-center justify-between text-xs text-[#555555] gap-2 font-mono">
         <div>*UNITED AI SYSTEM (C) {new Date().getFullYear()} ALL RIGHTS RESERVED.</div>
-        <div>
+        <div className="flex items-center gap-3">
           <a
             href="https://github.com/Astroash2001/ai-summarizer-pro"
             target="_blank"
@@ -127,6 +127,13 @@ const Footer = () => {
           >
             GITHUB SOURCE REPOSITORY
           </a>
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="btn-retro-secondary px-2.5 py-1 text-[11px] font-mono font-bold flex items-center gap-1 hover:bg-[#0000FF] hover:text-white"
+            title="Scroll to top"
+          >
+            <span>[ ⬆ TOP ]</span>
+          </button>
         </div>
       </div>
     </footer>
