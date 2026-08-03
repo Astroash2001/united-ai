@@ -173,7 +173,7 @@ export const AIBrainWidget: React.FC = () => {
           <div className="bg-[#D4D0BD] px-3 py-1 border-b border-[#1C1C1C] flex items-center justify-between text-[10px] text-[#1C1C1C]">
             <span className="font-bold flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-[#0000FF]" />
-              MODEL: gpt-4o-mini (LEAST TOKEN)
+              MODEL: gpt-4o-mini
             </span>
             <span className="px-1.5 py-0.2 border font-bold bg-[#00FF00]/20 text-[#006600] border-[#006600]">
               ● BRAIN ACTIVE
