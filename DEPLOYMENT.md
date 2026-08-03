@@ -98,11 +98,11 @@ After frontend is deployed, you'll need to update `CORS_ALLOWED_ORIGINS`:
 - **Name:** `ai-summarizer-frontend`
 - **Region:** Same as backend
 - **Branch:** `main`
-- **Root Directory:** (leave empty)
+- **Root Directory:** `frontend` (or leave empty)
 
 **Build Settings:**
 - **Build Command:** `npm install && npm run build`
-- **Publish Directory:** `dist`
+- **Publish Directory:** `dist` (if Root Directory is `frontend`) or `frontend/dist` (if Root Directory is empty)
 
 4. Add Environment Variable:
    - **Key:** `VITE_API_URL`

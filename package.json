@@ -1,0 +1,9 @@
+{
+  "name": "united-ai-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "United AI Root Wrapper for Render Deployment",
+  "scripts": {
+    "build": "npm --prefix frontend install && npm --prefix frontend run build"
+  }
+}
