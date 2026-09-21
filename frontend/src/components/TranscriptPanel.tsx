@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { MultilingualTranscriptRenderer } from "@/utils/multilingual";
-import { exportTranscriptToPDF } from "@/utils/pdfExport";
 import {
   downloadFile,
   hasTimestamps,
@@ -45,6 +44,7 @@ const TranscriptPanel = ({ label, exportTitle, fileBaseName, transcript, summary
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [showExports, setShowExports] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // A new transcript invalidates cached conversions.
   useEffect(() => {
@@ -83,12 +83,22 @@ const TranscriptPanel = ({ label, exportTitle, fileBaseName, transcript, summary
 
   const exportAs = async (format: "pdf" | "docx" | "md" | "txt" | "srt" | "vtt") => {
     setShowExports(false);
+    setError("");
     const data = { title: exportTitle, transcript: shownText, summary: summary || undefined };
     const suffix = view === "original" ? "" : `_${view}`;
     const name = `${fileBaseName}${suffix}`;
     switch (format) {
       case "pdf":
-        exportTranscriptToPDF({ ...data, timestamp: new Date().toLocaleString() });
+        setIsExportingPdf(true);
+        try {
+          // Loaded on demand: the PDF library and Hindi font are only needed here.
+          const { exportTranscriptToPDF } = await import("@/utils/pdfExport");
+          await exportTranscriptToPDF({ ...data, timestamp: new Date().toLocaleString(), filename: `${name}.pdf` });
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Failed to create PDF");
+        } finally {
+          setIsExportingPdf(false);
+        }
         break;
       case "docx":
         downloadFile(await toDocx(data), `${name}.docx`);
@@ -109,8 +119,7 @@ const TranscriptPanel = ({ label, exportTitle, fileBaseName, transcript, summary
   };
 
   const exportOptions: { format: Parameters<typeof exportAs>[0]; label: string; enabled: boolean }[] = [
-    // jsPDF's built-in fonts cannot draw Devanagari, so PDF is offered only for Latin text.
-    { format: "pdf", label: "PDF", enabled: !HAS_DEVANAGARI.test(shownText) },
+    { format: "pdf", label: isExportingPdf ? "PDF (BUILDING...)" : "PDF", enabled: !isExportingPdf },
     { format: "docx", label: "WORD (.DOCX)", enabled: true },
     { format: "md", label: "MARKDOWN", enabled: true },
     { format: "txt", label: "PLAIN TEXT", enabled: true },
