@@ -11,7 +11,8 @@ from rest_framework.parsers import MultiPartParser, FormParser
 
 from .serializers import FileUploadSerializer
 from .utils.text_extractor import extract_text_from_file
-from .utils.ai_summarizer import summarize_text
+from .utils.ai_summarizer import summarize_text, ai_summarizer
+from .utils.streaming import ndjson_response
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ class SummarizeDocumentView(APIView):
     
     Request:
         - file: The document file to summarize (PDF or TXT)
+        - stream (optional): "true" to stream the summary as NDJSON lines
         
     Response (Success):
         {
@@ -94,7 +96,10 @@ class SummarizeDocumentView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
         
-        # Step 3: Generate AI summary
+        # Step 3: Generate AI summary (streamed when requested)
+        if str(request.data.get('stream', '')).lower() == 'true':
+            return ndjson_response(ai_summarizer.summarize_stream(extracted_text))
+
         try:
             summary, summarization_error = summarize_text(extracted_text)
             

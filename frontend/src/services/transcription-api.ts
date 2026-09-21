@@ -2,10 +2,7 @@
  * API Service for Audio, Video, and Live Meeting Transcription
  */
 
-const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const API_BASE_URL = isLocalhost 
-  ? (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api')
-  : (import.meta.env.VITE_API_URL || 'https://ai-summarizer-pro-omy1.onrender.com/api');
+import { apiFetch } from "./config";
 
 export interface ChapterFlag {
   timestamp: string;
@@ -37,7 +34,7 @@ export async function transcribeAudio(file: File | Blob, mode: string = "meeting
 
   formData.append("mode", mode);
 
-  const response = await fetch(`${API_BASE_URL}/transcribe-audio/`, {
+  const response = await apiFetch(`/transcribe-audio/`, {
     method: "POST",
     body: formData,
   });
@@ -59,7 +56,7 @@ export async function transcribeVideo(file: File, mode: string = "meeting"): Pro
   formData.append("file", file);
   formData.append("mode", mode);
 
-  const response = await fetch(`${API_BASE_URL}/transcribe-video/`, {
+  const response = await apiFetch(`/transcribe-video/`, {
     method: "POST",
     body: formData,
   });
@@ -77,7 +74,7 @@ export async function transcribeVideo(file: File, mode: string = "meeting"): Pro
  * Fetch a short-lived Deepgram access token for live browser streaming
  */
 export async function getDeepgramToken(): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/deepgram-token/`, { method: "POST" });
+  const response = await apiFetch(`/deepgram-token/`, { method: "POST" });
   const data = await response.json();
 
   if (!response.ok || data.status === 'failed' || !data.access_token) {
@@ -91,7 +88,7 @@ export async function getDeepgramToken(): Promise<string> {
  * Summarize raw transcript text directly (useful for live speech where text already exists)
  */
 export async function summarizeTranscript(transcript: string, mode: string = "meeting"): Promise<{ corrected_transcript?: string; summary: string }> {
-  const response = await fetch(`${API_BASE_URL}/summarize-transcript/`, {
+  const response = await apiFetch(`/summarize-transcript/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

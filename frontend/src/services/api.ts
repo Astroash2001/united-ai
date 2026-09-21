@@ -3,11 +3,7 @@
  * Handles file uploads and summarization requests
  */
 
-const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const API_BASE_URL = isLocalhost 
-  ? (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api')
-  : (import.meta.env.VITE_API_URL || 'https://ai-summarizer-pro-omy1.onrender.com/api');
-
+import { apiFetch, readTextStream } from './config';
 
 /**
  * Response interface for successful summarization
@@ -25,37 +21,27 @@ export interface ErrorResponse {
   status: 'failed';
 }
 
+const DOCUMENT_EXTENSIONS = ['pdf', 'txt', 'md', 'csv', 'png', 'jpg', 'jpeg', 'webp', 'bmp', 'tiff'];
+
 /**
- * Upload a file to the backend for AI summarization
- * 
- * @param file - The PDF or TXT file to summarize
- * @returns Promise with summary text or throws error
- * 
- * @example
- * try {
- *   const summary = await summarizeFile(file);
- *   console.log(summary);
- * } catch (error) {
- *   console.error(error.message);
- * }
+ * Upload a file to the backend for AI summarization.
+ * The summary streams in as it is generated; onDelta receives the text so far.
+ *
+ * @param file - The PDF, text, or image file to summarize
+ * @returns Promise with the final summary text, or throws an error
  */
-export async function summarizeFile(file: File): Promise<string> {
-  // Validate file before sending
+export async function summarizeFile(file: File, onDelta: (textSoFar: string) => void = () => {}): Promise<string> {
   if (!file) {
     throw new Error('No file selected');
   }
 
-  // Check file type (MIME type or file extension)
-  const isPdf = file.type === 'application/pdf' || file.type === 'application/x-pdf' || file.name.toLowerCase().endsWith('.pdf');
-  const isTxt = file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt');
-
-  if (!isPdf && !isTxt) {
-    throw new Error('Invalid file type. Only PDF (.pdf) and TXT (.txt) files are supported.');
+  const extension = file.name.split('.').pop()?.toLowerCase() || '';
+  if (!DOCUMENT_EXTENSIONS.includes(extension)) {
+    throw new Error('Invalid file type. Only PDF, TXT, and image (PNG/JPG/WEBP) files are supported.');
   }
 
   // Check file size (10MB limit)
-  const maxSize = 10 * 1024 * 1024; // 10MB in bytes
-  if (file.size > maxSize) {
+  if (file.size > 10 * 1024 * 1024) {
     throw new Error('File size exceeds 10MB limit');
   }
 
@@ -63,42 +49,23 @@ export async function summarizeFile(file: File): Promise<string> {
     throw new Error('File is empty');
   }
 
-  // Create FormData and append file
   const formData = new FormData();
   formData.append('file', file);
+  formData.append('stream', 'true');
 
+  let response: Response;
   try {
-    // Send POST request to Django backend
-    const response = await fetch(`${API_BASE_URL}/summarize/`, {
-      method: 'POST',
-      body: formData,
-      // Note: Do NOT set Content-Type header
-      // Browser automatically sets it with boundary for multipart/form-data
-    });
-
-    // Parse JSON response
-    const data = await response.json() as SummaryResponse | ErrorResponse;
-
-    // Handle error responses from API
-    if (!response.ok || data.status === 'failed') {
-      const errorData = data as ErrorResponse;
-      throw new Error(errorData.error || 'Failed to summarize document');
-    }
-
-    // Return summary text on success
-    const successData = data as SummaryResponse;
-    return successData.summary;
-
-  } catch (error) {
-    // Handle network errors or JSON parsing errors
-    if (error instanceof Error) {
-      // Re-throw known errors
-      throw error;
-    }
-    
-    // Handle unknown errors
+    // Do NOT set Content-Type: the browser adds the multipart boundary itself.
+    response = await apiFetch('/summarize/', { method: 'POST', body: formData });
+  } catch {
     throw new Error('Network error. Please check if the backend server is running.');
   }
+
+  const summary = await readTextStream(response, onDelta, 'Failed to summarize document');
+  if (!summary.trim()) {
+    throw new Error('AI returned an empty summary');
+  }
+  return summary;
 }
 
 /**
@@ -108,9 +75,7 @@ export async function summarizeFile(file: File): Promise<string> {
  */
 export async function checkAPIHealth(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/summarize/`, {
-      method: 'GET',
-    });
+    const response = await apiFetch('/summarize/', { method: 'GET' });
     return response.ok;
   } catch {
     return false;

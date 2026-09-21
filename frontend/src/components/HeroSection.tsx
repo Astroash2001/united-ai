@@ -37,7 +37,8 @@ const HeroSection = () => {
     setShowWorkspace(true);
 
     try {
-      const summaryText = await summarizeFile(file);
+      // Summary streams into view as it is generated.
+      const summaryText = await summarizeFile(file, setSummary);
       setSummary(summaryText);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
@@ -292,7 +293,7 @@ const HeroSection = () => {
                 />
 
                 {summary ? (
-                  <button onClick={handleReset} className="btn-retro-secondary px-7 py-3 text-sm w-full">
+                  <button onClick={handleReset} disabled={isLoading} className="btn-retro-secondary px-7 py-3 text-sm w-full">
                     [ SUMMARIZE ANOTHER FILE ]
                   </button>
                 ) : (

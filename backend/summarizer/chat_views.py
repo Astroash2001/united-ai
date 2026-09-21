@@ -10,6 +10,8 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .serializers import FileUploadSerializer
 from .utils.text_extractor import extract_text_from_file
 from .utils.ai_summarizer import ai_summarizer
+from .utils.retrieval import select_relevant_context
+from .utils.streaming import ndjson_response
 
 logger = logging.getLogger(__name__)
 
@@ -121,11 +123,14 @@ class ChatWithDocumentView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
+            # Long documents: send only the passages most relevant to the question
+            relevant_context = select_relevant_context(context, question, max_chars=8000)
+
             # Create prompt for AI
             prompt = f"""Based on the following document content, answer the user's question.
 
 Document Content:
-{context[:8000]}
+{relevant_context}
 
 User Question: {question}
 
@@ -141,19 +146,24 @@ Answer the question based only on the information provided in the document. If t
                     status=status.HTTP_503_SERVICE_UNAVAILABLE
                 )
             
+            messages = [
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant that answers questions about documents accurately and concisely."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+
+            if request.data.get('stream') is True:
+                return ndjson_response(self._stream_answer(messages))
+
             try:
                 response = ai_summarizer.client.chat.completions.create(
                     model=ai_summarizer.model,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "You are a helpful assistant that answers questions about documents accurately and concisely."
-                        },
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
+                    messages=messages,
                     max_tokens=300,
                     temperature=0.7,
                 )
@@ -187,3 +197,21 @@ Answer the question based only on the information provided in the document. If t
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @staticmethod
+    def _stream_answer(messages):
+        """Yield (text_delta, error) pieces of the answer as the model generates it."""
+        try:
+            stream = ai_summarizer.client.chat.completions.create(
+                model=ai_summarizer.model,
+                messages=messages,
+                max_tokens=300,
+                temperature=0.7,
+                stream=True,
+            )
+            for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content, None
+        except Exception as e:
+            logger.error(f"AI chat stream error: {str(e)}")
+            yield "", "Failed to get AI response"

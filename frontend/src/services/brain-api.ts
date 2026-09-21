@@ -3,10 +3,7 @@
  * Provides autonomous Q&A and navigation intelligence via the backend LLM gateway.
  */
 
-const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const API_BASE_URL = isLocalhost 
-  ? (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api')
-  : (import.meta.env.VITE_API_URL || 'https://ai-summarizer-pro-omy1.onrender.com/api');
+import { apiFetch } from "./config";
 
 export interface AIBrainResponse {
   answer: string;
@@ -26,7 +23,7 @@ export async function queryAIBrain(
   currentRoute: string = "/"
 ): Promise<AIBrainResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/brain/`, {
+    const response = await apiFetch(`/brain/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question, current_route: currentRoute }),

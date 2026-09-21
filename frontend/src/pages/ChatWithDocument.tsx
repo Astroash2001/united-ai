@@ -114,7 +114,10 @@ const ChatWithDocument = () => {
     setTimeout(scrollToBottom, 50);
 
     try {
-      const data = await chatWithDocument(userMessage, extractedText);
+      // Answer streams into the last message as it is generated.
+      const data = await chatWithDocument(userMessage, extractedText, (answerSoFar) => {
+        setMessages([...newMessages, { role: "assistant", content: answerSoFar }]);
+      });
       setMessages([
         ...newMessages,
         { role: "assistant", content: data.answer },
@@ -234,7 +237,7 @@ const ChatWithDocument = () => {
                   </div>
                 ))}
 
-                {isSending && (
+                {isSending && messages[messages.length - 1]?.role === "user" && (
                   <div className="border border-[#1C1C1C] bg-[#0000FF] text-white p-3 text-xs font-mono">
                     &gt; UNITED AI IS PARSING CONTEXT AND CRAFTING ANSWER...
                   </div>
