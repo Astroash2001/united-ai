@@ -32,7 +32,7 @@ fi
 echo "[4/5] Setting up environment file..."
 if [ ! -f .env ]; then
     cp .env.example .env
-    echo ".env file created. Please edit it and add your OPENAI_API_KEY"
+    echo ".env file created. Please edit it and add your LLM_API_KEY and DEEPGRAM_API_KEY"
 else
     echo ".env file already exists"
 fi
@@ -50,7 +50,7 @@ echo "Setup Complete!"
 echo "========================================"
 echo ""
 echo "Next steps:"
-echo "1. Edit .env file and add your OPENAI_API_KEY"
+echo "1. Edit .env file and add your LLM_API_KEY and DEEPGRAM_API_KEY"
 echo "2. Run: python manage.py runserver"
 echo "3. API will be available at http://localhost:8000"
 echo ""

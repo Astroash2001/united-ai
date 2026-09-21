@@ -5,7 +5,7 @@ Get your AI Document Summarizer backend running in **5 minutes**! ⚡
 ## Prerequisites ✅
 
 - Python 3.10+ installed
-- OpenAI API key ([Get free trial here](https://platform.openai.com/signup))
+- LLM gateway API key (`LLM_API_KEY`) and Deepgram API key (`DEEPGRAM_API_KEY`)
 
 ## Setup (Windows)
 
@@ -24,10 +24,11 @@ This will:
 
 ### 2️⃣ Add Your API Key
 
-Edit `.env` file and add your OpenAI API key:
+Edit `.env` file and add your keys:
 
 ```env
-OPENAI_API_KEY=sk-your-actual-api-key-here
+LLM_API_KEY=your-llm-gateway-key
+DEEPGRAM_API_KEY=your-deepgram-key
 ```
 
 ### 3️⃣ Start Server
@@ -54,7 +55,7 @@ Edit `.env` file:
 
 ```bash
 nano .env
-# Add: OPENAI_API_KEY=sk-your-actual-api-key-here
+# Add: LLM_API_KEY=... and DEEPGRAM_API_KEY=...
 ```
 
 ### 3️⃣ Start Server
@@ -102,9 +103,9 @@ curl -X POST http://localhost:8000/api/summarize/ \
 pip install -r requirements.txt
 ```
 
-### "OpenAI API key not configured"
+### "AI summarization is not configured"
 - Check `.env` file exists in backend directory
-- Verify `OPENAI_API_KEY` is set correctly
+- Verify `LLM_API_KEY` is set correctly
 - Restart the server after changes
 
 ### "Port already in use"

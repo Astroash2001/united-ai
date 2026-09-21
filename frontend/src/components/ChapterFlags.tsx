@@ -8,6 +8,8 @@ export interface ChapterItem {
 
 interface ChapterFlagsProps {
   summaryText: string;
+  /** Chapters parsed by the backend; used instead of parsing summaryText when present. */
+  chapters?: ChapterItem[];
   onSeek?: (seconds: number) => void;
 }
 
@@ -41,8 +43,8 @@ export function extractChaptersFromMarkdown(markdownText: string): ChapterItem[]
   return chapters;
 }
 
-const ChapterFlags = ({ summaryText, onSeek }: ChapterFlagsProps) => {
-  const chapters = extractChaptersFromMarkdown(summaryText || "");
+const ChapterFlags = ({ summaryText, chapters: providedChapters, onSeek }: ChapterFlagsProps) => {
+  const chapters = providedChapters?.length ? providedChapters : extractChaptersFromMarkdown(summaryText || "");
 
   if (chapters.length === 0) return null;
 

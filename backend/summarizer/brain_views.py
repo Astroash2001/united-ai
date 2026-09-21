@@ -1,16 +1,17 @@
 """
 AI Brain Assistant view for autonomous routing and project Q&A.
-Uses gpt-4o-mini (least token model) to answer questions specifically about AI Summarizer Pro
+Uses the LLM gateway to answer questions specifically about AI Summarizer Pro
 and autonomously navigate/reroute users to requested capabilities.
 """
 import logging
 import json
-from openai import OpenAI
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import JSONParser
 from django.conf import settings
+
+from .utils.llm_client import get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +22,11 @@ Your job is to answer questions strictly related to AI Summarizer Pro, its featu
 CURRENT USER LOCATION / PAGE: "{current_route}"
 
 PROJECT PAGES & CAPABILITIES:
-1. Document Chat & Summarization: Route "/chat-with-document" or "/". Supports PDF, TXT, and Image (PNG, JPG, WEBP) files with OCR. Interactive Q&A and text extraction.
-2. Audio Transcription: Route "/audio". Upload MP3, WAV, M4A, OGG up to 25MB. Full transcription, summaries, timestamped chapters, retro audio player.
-3. Video Summarization: Route "/video". YouTube links or MP4/WEBM uploads up to 50MB. Chapter markers, timestamped segments, transcript summaries.
-4. About / Home Page: Route "/". Main landing page, feature breakdown, system specs.
+1. Document Chat: Route "/chat-with-document". Chat with a PDF, TXT, or image (OCR), or with a web page link. Searches long documents for relevant passages, remembers follow-up questions, optional web search with cited sources.
+2. Audio Transcription: Route "/audio". Live microphone recording with real-time Hindi + English transcription, speaker labels, and clickable timestamps; or upload MP3, WAV, M4A, OGG up to 200MB. Summaries, chapters, Hinglish/English view, exports (PDF, Word, Markdown, SRT, VTT).
+3. Video Transcription: Route "/video". Upload MP4, MOV, AVI, MKV up to 200MB, or paste a YouTube link. Chapter markers, timestamped transcript, summaries, exports.
+4. History: Route "/history". Saved transcripts, summaries, and document chats for this browser; continue a saved chat.
+5. Home / Document Summary: Route "/". Landing page and document summarizer (PDF, TXT, image) with streaming summary.
 
 NAVIGATION RULES:
 1. DO NOT REROUTE IF USER IS ASKING A QUESTION: If the user asks "what is this page about?", "explain this tool", or asks questions about the current page ("{current_route}"), explain the current page clearly and set "target_route" to null.
@@ -48,11 +50,11 @@ class AIBrainView(APIView):
     API Endpoint for the AI Brain Assistant.
     POST /api/brain/
     """
+    throttle_scope = 'ai_text'
     parser_classes = [JSONParser]
 
     def post(self, request):
         question = request.data.get('question', '').strip()
-        user_key = request.data.get('api_key', '').strip()
         current_route = request.data.get('current_route', '/').strip()
 
         if not question:
@@ -61,20 +63,19 @@ class AIBrainView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        api_key = user_key or getattr(settings, 'OPENAI_API_KEY', None)
-        if not api_key:
+        client = get_llm_client()
+        if not client:
             return Response(
                 {
-                    "error": "OpenAI API key missing.",
+                    "error": "AI service not configured. Please add LLM_API_KEY to environment.",
                     "status": "failed"
                 },
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
-        model_name = getattr(settings, 'OPENAI_MODEL', 'gpt-4o-mini')
+        model_name = settings.LLM_MODEL
 
         try:
-            client = OpenAI(api_key=api_key)
             system_prompt = build_system_prompt(current_route)
 
             response = client.chat.completions.create(

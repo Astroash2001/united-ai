@@ -21,6 +21,7 @@ interface Message {
   actionDescription?: string | null;
   redirected?: boolean;
   tokensUsed?: number;
+  modelUsed?: string;
   timestamp: string;
 }
 
@@ -31,6 +32,7 @@ export const AIBrainWidget: React.FC = () => {
   const [inputQuery, setInputQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [activeModel, setActiveModel] = useState("LLM GATEWAY");
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -113,10 +115,12 @@ export const AIBrainWidget: React.FC = () => {
       actionDescription: response.action_description,
       redirected: !!response.target_route,
       tokensUsed: response.tokens_used,
+      modelUsed: response.model_used,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
     setMessages((prev) => [...prev, assistantMessage]);
+    if (response.model_used) setActiveModel(response.model_used);
 
     // Handle Autonomous Rerouting / Navigation
     if (response.target_route) {
@@ -173,7 +177,7 @@ export const AIBrainWidget: React.FC = () => {
           <div className="bg-[#D4D0BD] px-3 py-1 border-b border-[#1C1C1C] flex items-center justify-between text-[10px] text-[#1C1C1C]">
             <span className="font-bold flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-[#0000FF]" />
-              MODEL: gpt-4o-mini
+              MODEL: {activeModel}
             </span>
             <span className="px-1.5 py-0.2 border font-bold bg-[#00FF00]/20 text-[#006600] border-[#006600]">
               ● BRAIN ACTIVE
@@ -245,7 +249,7 @@ export const AIBrainWidget: React.FC = () => {
 
                   {msg.tokensUsed && (
                     <div className="mt-1 text-[8px] text-right opacity-60">
-                      Tokens: {msg.tokensUsed} (gpt-4o-mini)
+                      Tokens: {msg.tokensUsed}{msg.modelUsed ? ` (${msg.modelUsed})` : ""}
                     </div>
                   )}
                 </div>

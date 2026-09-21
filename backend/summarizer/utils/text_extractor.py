@@ -1,6 +1,6 @@
 """
 Text extraction utilities for different file formats.
-Handles extracting text from PDF (with OpenAI Vision OCR fallback for scanned images & embedded diagrams), TXT, and Image files.
+Handles extracting text from PDF (with Vision OCR fallback for scanned images & embedded diagrams), TXT, and Image files.
 """
 import base64
 import logging
@@ -8,26 +8,26 @@ from typing import Tuple
 from io import BytesIO
 from pypdf import PdfReader
 from django.conf import settings
-from openai import OpenAI
+
+from .llm_client import get_llm_client
 
 logger = logging.getLogger(__name__)
 
 
 def ocr_image_bytes(image_bytes: bytes, mime_type: str = "image/png") -> str:
     """
-    Perform high-accuracy OCR on raw image bytes using OpenAI GPT-4o Vision API.
+    Perform high-accuracy OCR on raw image bytes using the LLM gateway vision model.
     """
     try:
-        if not settings.OPENAI_API_KEY:
-            logger.warning("OPENAI_API_KEY is missing for Vision OCR.")
+        client = get_llm_client()
+        if not client:
             return ""
 
-        client = OpenAI(api_key=settings.OPENAI_API_KEY)
         base64_img = base64.b64encode(image_bytes).decode('utf-8')
         data_url = f"data:{mime_type};base64,{base64_img}"
 
         response = client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
+            model=settings.LLM_VISION_MODEL,
             messages=[
                 {
                     "role": "user",
@@ -56,7 +56,7 @@ def ocr_image_bytes(image_bytes: bytes, mime_type: str = "image/png") -> str:
 def extract_text_from_pdf(file) -> Tuple[str, str]:
     """
     Extract text from a PDF file safely using pypdf.
-    Identifies embedded images/diagrams/figures on any page and applies OpenAI Vision OCR.
+    Identifies embedded images/diagrams/figures on any page and applies Vision OCR.
     """
     try:
         file.seek(0)

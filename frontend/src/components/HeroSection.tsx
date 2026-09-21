@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowRight, Copy } from "lucide-react";
 import Waves from "@/components/Waves";
 import { summarizeFile } from "@/services/api";
+import { saveHistory } from "@/services/history-api";
 
 const HeroSection = () => {
   const navigate = useNavigate();
@@ -37,8 +38,10 @@ const HeroSection = () => {
     setShowWorkspace(true);
 
     try {
-      const summaryText = await summarizeFile(file);
+      // Summary streams into view as it is generated.
+      const summaryText = await summarizeFile(file, setSummary);
       setSummary(summaryText);
+      saveHistory({ kind: "document", title: file.name, summary: summaryText });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
       setError(errorMessage);
@@ -101,7 +104,7 @@ const HeroSection = () => {
     {
       id: "audio",
       title: "02. AUDIO SPEECH ENGINE",
-      tag: "WHISPER & DEEPGRAM",
+      tag: "DEEPGRAM NOVA-3",
       desc: "Convert MP3, WAV, M4A, and FLAC recordings into verbatim transcripts with chapter flags.",
       action: () => navigate("/audio"),
       btnText: "[ OPEN AUDIO WORKSPACE ]",
@@ -292,7 +295,7 @@ const HeroSection = () => {
                 />
 
                 {summary ? (
-                  <button onClick={handleReset} className="btn-retro-secondary px-7 py-3 text-sm w-full">
+                  <button onClick={handleReset} disabled={isLoading} className="btn-retro-secondary px-7 py-3 text-sm w-full">
                     [ SUMMARIZE ANOTHER FILE ]
                   </button>
                 ) : (

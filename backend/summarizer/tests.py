@@ -42,11 +42,11 @@ class TextExtractorTests(TestCase):
 class AISummarizerTests(TestCase):
     """Test AI summarization utilities."""
     
-    @override_settings(OPENAI_API_KEY='test-key')
-    @patch('summarizer.utils.ai_summarizer.OpenAI')
+    @override_settings(LLM_API_KEY='test-key')
+    @patch('summarizer.utils.llm_client.OpenAI')
     def test_summarize_success(self, mock_openai):
         """Test successful summarization."""
-        # Mock OpenAI response
+        # Mock LLM gateway response
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
@@ -60,7 +60,7 @@ class AISummarizerTests(TestCase):
         self.assertIsNone(error)
         self.assertEqual(summary, "Test summary")
     
-    @override_settings(OPENAI_API_KEY='')
+    @override_settings(LLM_API_KEY='')
     def test_summarize_no_api_key(self):
         """Test summarization without API key."""
         summarizer = AISummarizer()
@@ -103,9 +103,9 @@ class SummarizeAPITests(APITestCase):
     def test_post_with_invalid_file_type(self):
         """Test POST request with invalid file type."""
         fake_file = SimpleUploadedFile(
-            "test.jpg",
-            b"fake image content",
-            content_type="image/jpeg"
+            "test.mp3",
+            b"fake audio content",
+            content_type="audio/mpeg"
         )
         
         response = self.client.post(self.url, {'file': fake_file}, format='multipart')
@@ -123,7 +123,7 @@ class SummarizeAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['status'], 'failed')
     
-    @override_settings(OPENAI_API_KEY='test-key')
+    @override_settings(LLM_API_KEY='test-key')
     @patch('summarizer.views.summarize_text')
     def test_post_with_valid_txt_file(self, mock_summarize):
         """Test POST request with valid TXT file."""

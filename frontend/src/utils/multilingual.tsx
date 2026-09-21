@@ -3,6 +3,7 @@ import React from "react";
 export interface TextSegment {
   language: "hindi" | "english" | "neutral";
   timestamp?: string;
+  speaker?: string;
   text: string;
 }
 
@@ -34,6 +35,14 @@ export function parseLanguageSegments(fullText: string): TextSegment[] {
       contentText = tsMatch[2];
     }
 
+    // Optional speaker label like [Speaker 2] from live diarization
+    let speaker: string | undefined = undefined;
+    const speakerMatch = contentText.match(/^\[(Speaker \d+)\]\s*(.*)/);
+    if (speakerMatch) {
+      speaker = speakerMatch[1];
+      contentText = speakerMatch[2];
+    }
+
     if (!contentText.trim()) {
       if (timestamp) {
         segments.push({ language: "neutral", timestamp, text: "" });
@@ -58,6 +67,7 @@ export function parseLanguageSegments(fullText: string): TextSegment[] {
     segments.push({
       language,
       timestamp,
+      speaker,
       text: contentText,
     });
   }
@@ -68,11 +78,18 @@ export function parseLanguageSegments(fullText: string): TextSegment[] {
 interface RenderMultilingualTranscriptProps {
   text: string;
   isRecording?: boolean;
+  /** When set, timestamp badges become buttons that seek the media player. */
+  onSeek?: (seconds: number) => void;
+}
+
+function timestampBadgeSeconds(badge: string): number {
+  return badge.replace(/[[\]]/g, "").split(":").reduce((total, part) => total * 60 + Number(part), 0);
 }
 
 export const MultilingualTranscriptRenderer: React.FC<RenderMultilingualTranscriptProps> = ({
   text,
   isRecording = false,
+  onSeek,
 }) => {
   if (!text && !isRecording) return null;
 
@@ -96,9 +113,25 @@ export const MultilingualTranscriptRenderer: React.FC<RenderMultilingualTranscri
           }`}
         >
           {/* Timestamp Badge if present */}
-          {seg.timestamp && (
+          {seg.timestamp && (onSeek ? (
+            <button
+              type="button"
+              onClick={() => onSeek(timestampBadgeSeconds(seg.timestamp!))}
+              title="Play from here"
+              className="bg-[#1C1C1C] text-emerald-400 text-xs px-2 py-0.5 rounded font-mono shrink-0 border border-emerald-500/30 hover:bg-emerald-500 hover:text-black transition-colors"
+            >
+              ▶ {seg.timestamp}
+            </button>
+          ) : (
             <span className="bg-[#1C1C1C] text-emerald-400 text-xs px-2 py-0.5 rounded font-mono shrink-0 border border-emerald-500/30">
               {seg.timestamp}
+            </span>
+          ))}
+
+          {/* Speaker label from live diarization */}
+          {seg.speaker && (
+            <span className="bg-[#E3DFCE] text-black font-bold text-xs px-2 py-0.5 rounded border border-[#1C1C1C] shrink-0 font-mono">
+              {seg.speaker}
             </span>
           )}
 

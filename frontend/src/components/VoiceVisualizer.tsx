@@ -26,7 +26,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
     }
 
     try {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       const audioCtx = new AudioContextClass();
       audioCtxRef.current = audioCtx;
 
@@ -82,10 +82,10 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
     return () => {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       if (sourceRef.current) {
-        try { sourceRef.current.disconnect(); } catch (e) {}
+        try { sourceRef.current.disconnect(); } catch { /* already disconnected */ }
       }
       if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
-        try { audioCtxRef.current.close(); } catch (e) {}
+        try { audioCtxRef.current.close(); } catch { /* already closing */ }
       }
     };
   }, [stream, isRecording, isPaused]);

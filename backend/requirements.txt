@@ -11,7 +11,7 @@ python-dotenv==1.0.0
 # PDF Processing
 pypdf==4.0.1
 
-# OpenAI API
+# OpenAI SDK (talks to the OpenAI-compatible LLM gateway)
 openai>=1.30.0
 
 # Production Server
@@ -25,3 +25,7 @@ whitenoise==6.6.0
 # Optional: For better logging
 colorlog==6.8.2
 
+
+# Audio extraction/compression (bundled ffmpeg binary) and YouTube downloads
+imageio-ffmpeg==0.6.0
+yt-dlp==2026.8.19

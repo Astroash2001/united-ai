@@ -9,8 +9,7 @@ const footerLinks = {
     { label: "Interactive RAG Chat", path: "/chat-with-document" },
   ],
   authenticStack: [
-    { label: "OpenAI GPT Models", path: "https://platform.openai.com/docs", external: true },
-    { label: "OpenAI Whisper AI", path: "https://openai.com/research/whisper", external: true },
+    { label: "Experiential Labs LLM Gateway", path: "https://platform.experientiallabs.ai", external: true },
     { label: "Deepgram API Engine", path: "https://deepgram.com", external: true },
     { label: "PyPDF Document Parser", path: "https://pypdf.readthedocs.io", external: true },
   ],
@@ -37,7 +36,7 @@ const Footer = () => {
             </span>
           </div>
           <p className="text-sm font-vt323 leading-relaxed text-[#333333] max-w-sm">
-            *Engineered for real-time document analysis, speech-to-text, and conversational context extraction using OpenAI & Deepgram with zero data retention.
+            *Engineered for real-time document analysis, speech-to-text, and conversational context extraction using an LLM gateway & Deepgram.
           </p>
           <div className="pt-1">
             <a
