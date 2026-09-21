@@ -104,7 +104,7 @@ const HeroSection = () => {
     {
       id: "audio",
       title: "02. AUDIO SPEECH ENGINE",
-      tag: "WHISPER & DEEPGRAM",
+      tag: "DEEPGRAM NOVA-3",
       desc: "Convert MP3, WAV, M4A, and FLAC recordings into verbatim transcripts with chapter flags.",
       action: () => navigate("/audio"),
       btnText: "[ OPEN AUDIO WORKSPACE ]",

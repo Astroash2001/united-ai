@@ -70,8 +70,9 @@ pip install -r requirements.txt
 copy .env.example .env  # Windows
 cp .env.example .env    # Mac/Linux
 
-# Edit .env and add your OpenAI API key
-# OPENAI_API_KEY=sk-your-actual-api-key-here
+# Edit .env and add your keys
+# LLM_API_KEY=...        (OpenAI-compatible LLM gateway)
+# DEEPGRAM_API_KEY=...   (speech transcription)
 ```
 
 ### 5. Run Migrations
@@ -175,10 +176,11 @@ Edit `.env` file to configure:
 | `DEBUG` | Debug mode | `True` |
 | `ALLOWED_HOSTS` | Allowed host names | `localhost,127.0.0.1` |
 | `CORS_ALLOWED_ORIGINS` | Frontend URLs for CORS | `http://localhost:5173,...` |
-| `OPENAI_API_KEY` | OpenAI API key | (required) |
-| `OPENAI_MODEL` | AI model to use | `gpt-3.5-turbo` |
-| `OPENAI_MAX_TOKENS` | Max tokens in summary | `500` |
-| `OPENAI_TEMPERATURE` | Response randomness | `0.7` |
+| `LLM_API_KEY` | LLM gateway API key | (required) |
+| `LLM_API_BASE` | LLM gateway URL | `https://api.experientiallabs.ai/v1` |
+| `LLM_MODEL` | Text model | `deepseek-v4-flash` |
+| `LLM_VISION_MODEL` | OCR model | `gpt-5.6-luna` |
+| `DEEPGRAM_API_KEY` | Deepgram key (Member role) | (required for transcription) |
 
 ### File Upload Settings
 
@@ -278,8 +280,8 @@ DATABASES = {
 
 ### Common Issues
 
-1. **"OpenAI API key not configured"**
-   - Make sure `.env` file exists with `OPENAI_API_KEY`
+1. **"AI summarization is not configured"**
+   - Make sure `.env` file exists with `LLM_API_KEY`
    - Restart the server after adding the key
 
 2. **"Could not extract text from PDF"**

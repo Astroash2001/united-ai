@@ -2,8 +2,8 @@
 Shared chat-completion client for all text and vision features.
 
 Points the OpenAI SDK at the OpenAI-compatible LLM gateway configured by
-LLM_API_KEY / LLM_API_BASE. Whisper transcription does not use this client;
-it stays on OPENAI_API_KEY (see audio_transcriber.py).
+LLM_API_KEY / LLM_API_BASE. Speech transcription uses Deepgram instead
+(see audio_transcriber.py).
 """
 import logging
 from typing import Optional

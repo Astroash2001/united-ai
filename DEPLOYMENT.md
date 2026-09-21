@@ -6,7 +6,8 @@ This guide will walk you through deploying both the frontend and backend of the 
 
 - [Render account](https://render.com) (free tier available)
 - GitHub account with your repository
-- OpenAI API key
+- LLM gateway API key (`LLM_API_KEY`, OpenAI-compatible)
+- Deepgram API key with the Member role (`DEEPGRAM_API_KEY`)
 
 ---
 
@@ -49,10 +50,9 @@ This guide will walk you through deploying both the frontend and backend of the 
 DJANGO_SECRET_KEY=<generate-a-secure-random-key>
 DEBUG=False
 ALLOWED_HOSTS=<your-service-name>.onrender.com
-OPENAI_API_KEY=<your-openai-api-key>
-OPENAI_MODEL=gpt-4o-mini
-OPENAI_MAX_TOKENS=500
-OPENAI_TEMPERATURE=0.7
+LLM_API_KEY=<your-llm-gateway-key>
+LLM_API_BASE=https://api.experientiallabs.ai/v1
+DEEPGRAM_API_KEY=<your-deepgram-key>
 CORS_ALLOWED_ORIGINS=http://localhost:3000
 ```
 
@@ -145,7 +145,7 @@ Now go back to your backend service and update the `CORS_ALLOWED_ORIGINS` enviro
 - **"Application Failed to Respond"**
   - Check logs: Backend service → Logs tab
   - Verify `DATABASE_URL` is set
-  - Verify `OPENAI_API_KEY` is set correctly
+  - Verify `LLM_API_KEY` and `DEEPGRAM_API_KEY` are set correctly
 
 - **"Failed to connect to database"**
   - Ensure PostgreSQL database is created and running
@@ -167,10 +167,10 @@ Now go back to your backend service and update the `CORS_ALLOWED_ORIGINS` enviro
   - Verify build succeeded in Render logs
   - Check that publish directory is set to `dist`
 
-**OpenAI API Issues:**
+**AI API Issues:**
 
 - **"AI service not configured"**
-  - Verify `OPENAI_API_KEY` is set in backend environment variables
+  - Verify `LLM_API_KEY` is set in backend environment variables (transcription needs `DEEPGRAM_API_KEY`)
   - Check API key is valid and has credits
   - Verify no extra quotes around the API key
 
@@ -219,7 +219,7 @@ Before deploying, verify:
 - [ ] `.env` files are NOT in Git repository
 - [ ] `DEBUG=False` in production
 - [ ] Unique `DJANGO_SECRET_KEY` for production
-- [ ] OpenAI API key is set as environment variable (not hardcoded)
+- [ ] LLM and Deepgram API keys are set as environment variables (not hardcoded)
 - [ ] CORS is restricted to your frontend domain only
 - [ ] HTTPS is enforced (Render does this automatically)
 
@@ -273,7 +273,7 @@ Share your deployed application with others! 🚀
 
 2. **Monitoring:**
    - Set up uptime monitoring (e.g., UptimeRobot)
-   - Monitor API usage on OpenAI dashboard
+   - Monitor API usage on the LLM gateway and Deepgram dashboards
 
 3. **Scaling:**
    - Upgrade to paid plan when needed

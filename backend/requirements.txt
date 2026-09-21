@@ -11,7 +11,7 @@ python-dotenv==1.0.0
 # PDF Processing
 pypdf==4.0.1
 
-# OpenAI API
+# OpenAI SDK (talks to the OpenAI-compatible LLM gateway)
 openai>=1.30.0
 
 # Production Server

@@ -1,6 +1,6 @@
 # 🤖 UNITED_AI.TXT (AI Summarizer Pro)
 
-> **All-in-one Knowledge Operating System & Autonomous Intelligence Suite** built with React, Django REST Framework, an OpenAI-compatible LLM gateway, Deepgram live speech, and OpenAI Whisper.
+> **All-in-one Knowledge Operating System & Autonomous Intelligence Suite** built with React, Django REST Framework, an OpenAI-compatible LLM gateway, and Deepgram speech recognition.
 
 ---
 
@@ -8,7 +8,7 @@
 
 - 📄 **Document Summarization & OCR** — Upload **PDF**, **TXT**, or **Images (PNG, JPG, WEBP)** up to 10MB. Automatic OCR, streaming summary, and two-pass summaries for long documents.
 - 🎙️ **Live Hindi + English Transcription** — Record in the browser and see words appear as you speak. Deepgram handles code-switched Hindi and English, labels speakers, and adds clickable timestamps that seek the recording.
-- 🎧 **Audio & Video Transcription** — Upload **MP3, WAV, M4A, OGG** or **MP4, MOV, AVI, MKV** files up to 200MB, or paste a **YouTube link**. Large files are compressed and split for Whisper automatically. Produces timestamped transcripts, summaries, and chapter jump markers.
+- 🎧 **Audio & Video Transcription** — Upload **MP3, WAV, M4A, OGG** or **MP4, MOV, AVI, MKV** files up to 200MB, or paste a **YouTube link**. Transcribed by Deepgram with Hindi + English support and speaker labels; video and large files are compressed first. Produces timestamped transcripts, summaries, and chapter jump markers.
 - 🔤 **Transcript Tools** — Show Hindi in Latin letters (Hinglish) or translated to English, and export as PDF, Word, Markdown, TXT, SRT, or VTT.
 - 💬 **Document Chat** — Chat with a file or a web page link. Each question searches the whole document for relevant passages, remembers follow-ups, and can add cited web search results. Answers stream in.
 - 🗂️ **History** — Summaries, transcripts, and chats are saved per browser; reopen them or continue a chat from the History page.
@@ -29,8 +29,7 @@
 ### Backend
 - **Django 5.0** + **Django REST Framework** — API engine
 - **LLM gateway** (OpenAI-compatible, e.g. Experiential Labs) — summaries, chat, AI Brain, OCR, transliteration
-- **OpenAI Whisper** — transcription of uploaded audio/video
-- **Deepgram nova-3** — live Hindi + English streaming transcription with speaker labels
+- **Deepgram nova-3** — live and uploaded Hindi + English transcription with speaker labels
 - **ffmpeg** (bundled via `imageio-ffmpeg`) + **yt-dlp** — audio extraction, compression, YouTube downloads
 - **PyPDF** + vision-model OCR — Multi-format text extraction
 - **Jina Reader** / **Tavily** (optional) — web page reading and web search for document chat
@@ -47,8 +46,7 @@
 - Python 3.11+
 - API keys in `backend/.env` (see [`backend/.env.example`](backend/.env.example)):
   - `LLM_API_KEY` + `LLM_API_BASE` — OpenAI-compatible LLM gateway (required)
-  - `OPENAI_API_KEY` — Whisper transcription of uploaded audio/video
-  - `DEEPGRAM_API_KEY` — live transcription; the key needs the **Member** role so it can issue short-lived browser tokens
+  - `DEEPGRAM_API_KEY` — live and uploaded transcription; the key needs the **Member** role so it can issue short-lived browser tokens
   - `TAVILY_API_KEY`, `JINA_API_KEY` — optional web search and higher web-page reading limits
 
 ---
@@ -146,7 +144,7 @@ This project is pre-configured for instant deployment on [Render](https://render
    - **Root Directory**: `backend`
    - **Build Command**: `./build.sh`
    - **Start Command**: `gunicorn config.wsgi:application` (reads `backend/gunicorn.conf.py`, which raises the timeout to 600s for long transcriptions)
-   - **Required env vars**: `DJANGO_SECRET_KEY`, `DEBUG=False`, `CORS_ALLOWED_ORIGINS` (your frontend URL), `LLM_API_KEY`, `LLM_API_BASE`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`. `ALLOWED_HOSTS` is optional on Render (the service hostname is added automatically).
+   - **Required env vars**: `DJANGO_SECRET_KEY`, `DEBUG=False`, `CORS_ALLOWED_ORIGINS` (your frontend URL), `LLM_API_KEY`, `LLM_API_BASE`, `DEEPGRAM_API_KEY`. `ALLOWED_HOSTS` is optional on Render (the service hostname is added automatically).
 
 For full details, see the step-by-step [DEPLOYMENT.md](DEPLOYMENT.md) guide.
 
@@ -184,7 +182,7 @@ united-ai/
 
 - [x] Document Summarization with OCR (PDF, TXT, PNG, JPG, WEBP)
 - [x] Interactive RAG Document Q&A Chat
-- [x] Audio Speech Engine (Whisper / Live Recording / Chapter Flags)
+- [x] Audio Speech Engine (Deepgram / Live Recording / Chapter Flags)
 - [x] Video Media Parser & YouTube Summarizer
 - [x] Autonomous AI Brain Navigation Agent (`UNITED_AI.BRAIN`)
 - [x] Direct Page Rerouting without Toast Pop-ups

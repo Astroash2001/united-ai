@@ -19,7 +19,9 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from .models import HistoryEntry
-from .utils.audio_transcriber import format_timestamp, parse_chapters, prepare_audio_parts
+from .utils.audio_transcriber import (
+    TranscriptionError, audio_transcriber, format_timestamp, parse_chapters, prepare_audio, utterances_to_lines,
+)
 from .utils.retrieval import chunk_text, rank_chunks, select_relevant_context, tokenize
 from .utils.transcript_transform import _batches, transform_transcript
 from .utils.youtube import is_youtube_url
@@ -70,29 +72,80 @@ class TranscriptionHelperTests(SimpleTestCase):
             {"timestamp": "01:15", "title": "Budget review", "seconds": 75},
         ])
 
+    @staticmethod
+    def _write_wav(path, seconds):
+        with wave.open(path, "wb") as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(16000)
+            wav.writeframes(b"\0" * 16000 * 2 * seconds)
+
     def test_small_audio_file_is_used_as_is(self):
         with tempfile.TemporaryDirectory() as work_dir:
             path = os.path.join(work_dir, "tone.wav")
-            with wave.open(path, "wb") as wav:
-                wav.setnchannels(1)
-                wav.setsampwidth(2)
-                wav.setframerate(16000)
-                wav.writeframes(b"\0" * 32000)
-            self.assertEqual(prepare_audio_parts(path, work_dir), [(path, 0.0)])
+            self._write_wav(path, 1)
+            self.assertEqual(prepare_audio(path, work_dir), path)
 
-    def test_oversized_audio_is_compressed_and_split(self):
+    def test_video_is_converted_to_compact_mp3(self):
         with tempfile.TemporaryDirectory() as work_dir:
-            path = os.path.join(work_dir, "long.wav")
-            with wave.open(path, "wb") as wav:
-                wav.setnchannels(1)
-                wav.setsampwidth(2)
-                wav.setframerate(16000)
-                wav.writeframes(b"\0" * 16000 * 2 * 12)  # 12 seconds
-            with patch("summarizer.utils.audio_transcriber.WHISPER_MAX_BYTES", 1000), \
-                    patch("summarizer.utils.audio_transcriber.SEGMENT_SECONDS", 5):
-                parts = prepare_audio_parts(path, work_dir)
-            self.assertEqual([offset for _, offset in parts], [0, 5, 10])
-            self.assertTrue(all(p.endswith(".mp3") for p, _ in parts))
+            path = os.path.join(work_dir, "clip.mkv")
+            self._write_wav(path, 2)  # ffmpeg detects the real format from content
+            result = prepare_audio(path, work_dir)
+            self.assertTrue(result.endswith("compact.mp3"))
+            self.assertLess(os.path.getsize(result), os.path.getsize(path))
+
+    def test_unreadable_file_gives_friendly_error(self):
+        with tempfile.TemporaryDirectory() as work_dir:
+            path = os.path.join(work_dir, "broken.mp4")
+            with open(path, "wb") as f:
+                f.write(b"not a video")
+            with self.assertRaises(TranscriptionError):
+                prepare_audio(path, work_dir)
+
+    def test_utterances_grouped_into_timestamped_lines(self):
+        utterances = [
+            {"start": 0.0, "end": 1.5, "speaker": 0, "transcript": "Hello team."},
+            {"start": 1.8, "end": 3.0, "speaker": 0, "transcript": "आज हम launch discuss करेंगे."},
+            {"start": 6.0, "end": 7.0, "speaker": 0, "transcript": "After a pause."},
+            {"start": 7.2, "end": 8.0, "speaker": 1, "transcript": "ठीक है."},
+        ]
+        self.assertEqual(utterances_to_lines(utterances), [
+            "[00:00] [Speaker 1] Hello team. आज हम launch discuss करेंगे.",
+            "[00:06] [Speaker 1] After a pause.",
+            "[00:07] [Speaker 2] ठीक है.",
+        ])
+
+    def test_single_speaker_has_no_labels(self):
+        lines = utterances_to_lines([{"start": 65, "end": 66, "speaker": 0, "transcript": "Only me."}])
+        self.assertEqual(lines, ["[01:05] Only me."])
+
+    @override_settings(DEEPGRAM_API_KEY="dg-key")
+    @patch("summarizer.utils.audio_transcriber.urllib.request.urlopen")
+    def test_transcribe_path_uses_deepgram_multi_language(self, mock_urlopen):
+        payload = {"results": {
+            "channels": [{"alternatives": [{"transcript": "Hello. ठीक है."}]}],
+            "utterances": [{"start": 0, "end": 1, "speaker": 0, "transcript": "Hello. ठीक है."}],
+        }}
+        mock_urlopen.return_value.__enter__.return_value = io.BytesIO(json.dumps(payload).encode())
+        with tempfile.TemporaryDirectory() as work_dir:
+            path = os.path.join(work_dir, "tone.wav")
+            self._write_wav(path, 1)
+            transcript, summary, chapters, error = audio_transcriber.transcribe_path(path, summarize=False)
+
+        self.assertIsNone(error)
+        self.assertEqual(transcript, "[00:00] Hello. ठीक है.")
+        request = mock_urlopen.call_args.args[0]
+        self.assertIn("language=multi", request.full_url)
+        self.assertIn("diarize=true", request.full_url)
+        self.assertEqual(request.get_header("Authorization"), "Token dg-key")
+
+    @override_settings(DEEPGRAM_API_KEY="")
+    def test_missing_deepgram_key_reported(self):
+        with tempfile.TemporaryDirectory() as work_dir:
+            path = os.path.join(work_dir, "tone.wav")
+            self._write_wav(path, 1)
+            error = audio_transcriber.transcribe_path(path, summarize=False)[3]
+        self.assertIn("DEEPGRAM_API_KEY", error)
 
     def test_youtube_url_check(self):
         self.assertTrue(is_youtube_url("https://www.youtube.com/watch?v=jNQXAC9IVRw"))

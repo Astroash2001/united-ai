@@ -183,7 +183,7 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50 MB (non-file request body, 
 # Allowed file types for document upload (summarize / extract-text)
 ALLOWED_DOCUMENT_TYPES = ['pdf', 'txt', 'md', 'csv', 'png', 'jpg', 'jpeg', 'webp', 'bmp', 'tiff']
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB (documents)
-# Audio/video are compressed with ffmpeg and split for Whisper, so larger files work.
+# Video and large audio are compressed with ffmpeg before upload to Deepgram.
 MAX_MEDIA_FILE_SIZE = int(os.environ.get('MAX_MEDIA_FILE_SIZE_MB', '200')) * 1024 * 1024
 
 # LLM Gateway Configuration (OpenAI-compatible; used for all text and vision features)
@@ -194,10 +194,7 @@ LLM_VISION_MODEL = os.environ.get('LLM_VISION_MODEL', 'gpt-5.6-luna')
 LLM_MAX_TOKENS = int(os.environ.get('LLM_MAX_TOKENS', '1000'))
 LLM_TEMPERATURE = float(os.environ.get('LLM_TEMPERATURE', '0.7'))
 
-# OpenAI Configuration (Whisper transcription only)
-OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
-
-# Deepgram Configuration
+# Deepgram Configuration (live and uploaded audio/video transcription)
 DEEPGRAM_API_KEY = os.environ.get('DEEPGRAM_API_KEY', '')
 
 # Optional web sources for document chat

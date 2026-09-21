@@ -25,7 +25,7 @@ export interface TranscribeOptions {
   summarize?: boolean;
 }
 
-/** Largest audio/video upload the backend accepts (it compresses and splits for Whisper). */
+/** Largest audio/video upload the backend accepts (video and large audio are compressed before transcription). */
 export const MAX_MEDIA_UPLOAD_MB = 200;
 
 async function transcribeUpload(path: string, file: File | Blob, options: TranscribeOptions, fallbackError: string) {
@@ -33,7 +33,7 @@ async function transcribeUpload(path: string, file: File | Blob, options: Transc
   if (file instanceof File) {
     formData.append("file", file);
   } else {
-    // Ensure live recording blob is named recording.webm for OpenAI Whisper API
+    // Name the live recording blob so the server keeps its .webm extension
     formData.append("file", file, "recording.webm");
   }
   formData.append("mode", options.mode ?? "meeting");

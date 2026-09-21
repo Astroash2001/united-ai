@@ -1,38 +1,50 @@
 """
-Audio and Video transcription utility using OpenAI Whisper API & LLM gateway Meeting Intelligence.
+Audio and Video transcription utility using Deepgram & LLM gateway Meeting Intelligence.
 Includes YouTube-style Timestamp Chapters & Segment Flags.
 
-Large or video files are first converted to compact mono audio with ffmpeg, and
-split into parts when still above Whisper's 25MB upload limit.
+Deepgram nova-3 with language=multi transcribes code-switched Hindi + English,
+writing each word in its own script, and labels speakers. Video and large
+audio files are first converted to compact mono audio with ffmpeg so the
+upload to Deepgram stays small.
 """
+import json
 import logging
 import os
 import re
 import shutil
 import subprocess
 import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
 from typing import Any, Dict, List, Optional, Tuple
 
 import imageio_ffmpeg
-from openai import OpenAI
 from django.conf import settings
 
 from .llm_client import get_llm_client
 
 logger = logging.getLogger(__name__)
 
-# Extensions strictly allowed by OpenAI Whisper API
-WHISPER_ALLOWED_EXTENSIONS = {'flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm'}
-# Stay safely under Whisper's 25MB request limit.
-WHISPER_MAX_BYTES = 24 * 1024 * 1024
-# Container formats that carry video; their audio track is extracted before upload.
-VIDEO_EXTENSIONS = {'mp4', 'mov', 'avi', 'mkv', 'mpeg', 'm4v'}
-# Part length when compact audio is still too large (20 min of 32 kbps mono ≈ 4.8MB).
-SEGMENT_SECONDS = 1200
+DEEPGRAM_LISTEN_URL = "https://api.deepgram.com/v1/listen"
+# Audio formats sent to Deepgram as-is when small; everything else is converted first.
+DIRECT_AUDIO_EXTENSIONS = {'flac', 'm4a', 'mp3', 'oga', 'ogg', 'wav', 'webm', 'aac', 'opus'}
+# Larger audio files are compressed before upload to keep the transfer fast.
+DIRECT_UPLOAD_MAX_BYTES = 24 * 1024 * 1024
+# Deepgram processes long files in one request; allow up to 10 minutes.
+DEEPGRAM_TIMEOUT_SECONDS = 600
+
+# Grouping of Deepgram utterances into sentence-sized, timestamped transcript lines.
+PAUSE_GAP_SECONDS = 2
+LONG_LINE_CHARS = 120
 
 TranscriptionResult = Tuple[str, str, List[Dict[str, Any]], Optional[str]]
 
 _CHAPTER_LINE_RE = re.compile(r"^\s*[-*]?\s*\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*[-:–]?\s*(.+?)\s*$")
+
+
+class TranscriptionError(Exception):
+    """A transcription failure with a message that is safe to show to users."""
 
 
 def format_timestamp(seconds: float) -> str:
@@ -77,65 +89,112 @@ def parse_chapters(summary: str) -> List[Dict[str, Any]]:
     return chapters
 
 
+def utterances_to_lines(utterances: List[Dict[str, Any]]) -> List[str]:
+    """
+    Group Deepgram utterances into "[mm:ss] [Speaker N] text" lines.
+    Consecutive utterances from the same speaker are joined unless separated
+    by a pause or the line is already long. Speaker labels appear only when
+    more than one speaker was heard.
+    """
+    lines: List[Dict[str, Any]] = []
+    last_end = None
+    for utterance in utterances:
+        text = (utterance.get("transcript") or "").strip()
+        if not text:
+            continue
+        speaker = utterance.get("speaker")
+        current = lines[-1] if lines else None
+        start_new = (
+            current is None
+            or speaker != current["speaker"]
+            or (last_end is not None and utterance.get("start", 0) - last_end > PAUSE_GAP_SECONDS)
+            or len(current["text"]) >= LONG_LINE_CHARS
+        )
+        if start_new:
+            lines.append({"start": utterance.get("start", 0), "speaker": speaker, "text": text})
+        else:
+            current["text"] = f"{current['text']} {text}"
+        last_end = utterance.get("end", last_end)
+
+    show_speakers = len({line["speaker"] for line in lines if line["speaker"] is not None}) > 1
+    rendered = []
+    for line in lines:
+        label = f"[Speaker {line['speaker'] + 1}] " if show_speakers and line["speaker"] is not None else ""
+        rendered.append(f"[{format_timestamp(line['start'])}] {label}{line['text']}")
+    return rendered
+
+
 def _run_ffmpeg(args: List[str]) -> None:
     command = [imageio_ffmpeg.get_ffmpeg_exe(), '-hide_banner', '-loglevel', 'error', '-y', *args]
     result = subprocess.run(command, capture_output=True, text=True, timeout=900)
     if result.returncode != 0:
-        raise RuntimeError(f"ffmpeg failed: {result.stderr.strip()[:300]}")
+        raise TranscriptionError("Could not read audio from this file. It may be corrupted or in an unsupported format.")
 
 
-def prepare_audio_parts(source_path: str, work_dir: str) -> List[Tuple[str, float]]:
+def prepare_audio(source_path: str, work_dir: str) -> str:
     """
-    Return Whisper-ready audio files as (path, start_offset_seconds).
-    Small audio files are used as-is; video or oversized files are converted
-    to 16kHz mono 32kbps MP3 and split into parts if still too large.
+    Return the path of the audio file to upload. Small audio files are used
+    as-is; video or large files are converted to 16kHz mono 32kbps MP3.
     """
     extension = source_path.rsplit('.', 1)[-1].lower()
-    size = os.path.getsize(source_path)
-    if extension not in VIDEO_EXTENSIONS and extension in WHISPER_ALLOWED_EXTENSIONS and size <= WHISPER_MAX_BYTES:
-        return [(source_path, 0.0)]
+    if extension in DIRECT_AUDIO_EXTENSIONS and os.path.getsize(source_path) <= DIRECT_UPLOAD_MAX_BYTES:
+        return source_path
 
     compact_path = os.path.join(work_dir, 'compact.mp3')
     _run_ffmpeg(['-i', source_path, '-vn', '-ac', '1', '-ar', '16000', '-b:a', '32k', compact_path])
-    if os.path.getsize(compact_path) <= WHISPER_MAX_BYTES:
-        return [(compact_path, 0.0)]
+    return compact_path
 
-    pattern = os.path.join(work_dir, 'part_%03d.mp3')
-    _run_ffmpeg(['-i', compact_path, '-f', 'segment', '-segment_time', str(SEGMENT_SECONDS), '-c', 'copy', pattern])
-    parts = sorted(name for name in os.listdir(work_dir) if name.startswith('part_'))
-    return [(os.path.join(work_dir, name), index * SEGMENT_SECONDS) for index, name in enumerate(parts)]
+
+def deepgram_transcribe(path: str, language: str = "multi") -> Dict[str, Any]:
+    """Send an audio file to Deepgram's pre-recorded API and return the JSON result."""
+    api_key = getattr(settings, 'DEEPGRAM_API_KEY', '')
+    if not api_key:
+        raise TranscriptionError("Deepgram API key is not configured. Please add DEEPGRAM_API_KEY to environment.")
+
+    params = urllib.parse.urlencode({
+        "model": "nova-3",
+        "language": language,
+        "smart_format": "true",
+        "punctuate": "true",
+        "diarize": "true",
+        "utterances": "true",
+    })
+    with open(path, "rb") as audio_file:
+        request = urllib.request.Request(
+            f"{DEEPGRAM_LISTEN_URL}?{params}",
+            data=audio_file,
+            headers={
+                "Authorization": f"Token {api_key}",
+                "Content-Type": "audio/*",
+                "Content-Length": str(os.path.getsize(path)),
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=DEEPGRAM_TIMEOUT_SECONDS) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as e:
+            logger.error(f"Deepgram transcription failed: HTTP {e.code} {e.read()[:300]!r}")
+            if e.code in (401, 403):
+                raise TranscriptionError("Invalid or missing Deepgram API key.")
+            if e.code == 429:
+                raise TranscriptionError("Transcription rate limit exceeded. Please try again later.")
+            if e.code == 400:
+                raise TranscriptionError("Deepgram could not process this audio. It may be corrupted or silent.")
+            raise TranscriptionError(f"Transcription failed (Deepgram HTTP {e.code}).")
+        except (urllib.error.URLError, TimeoutError) as e:
+            logger.error(f"Deepgram connection error: {e}")
+            raise TranscriptionError("Could not reach the transcription service. Please try again.")
 
 
 class AudioTranscriber:
     """
-    Wrapper for AI audio/video transcription using OpenAI Whisper & LLM gateway Meeting Intelligence.
+    Wrapper for AI audio/video transcription using Deepgram & LLM gateway Meeting Intelligence.
     Generates YouTube-style interactive chapter flags and timestamps.
     """
 
     def __init__(self):
-        self.api_key = getattr(settings, 'OPENAI_API_KEY', '')
-        if not self.api_key:
-            logger.warning("OpenAI API key not configured")
-        self.client = OpenAI(api_key=self.api_key) if self.api_key else None
         self.llm_client = get_llm_client()
-
-    def _transcribe_part(self, path: str, offset: float) -> Tuple[str, List[str]]:
-        """Transcribe one audio file; returns (plain_text, timestamped_lines)."""
-        with open(path, "rb") as audio_file:
-            response = self.client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file,
-                response_format="verbose_json",
-                timestamp_granularities=["segment"]
-            )
-
-        text = getattr(response, 'text', str(response)).strip()
-        lines = []
-        for seg in getattr(response, 'segments', None) or []:
-            content = getattr(seg, 'text', '').strip()
-            if content:
-                lines.append(f"[{format_timestamp(getattr(seg, 'start', 0.0) + offset)}] {content}")
-        return text, lines
 
     def _summarize(self, timestamped_text: str, mode: str) -> str:
         """Generate chapter flags and meeting notes; falls back to a short notice on failure."""
@@ -190,45 +249,32 @@ class AudioTranscriber:
         Returns:
             Tuple of (timestamped_transcript, summary_text, chapters_list, error_message)
         """
-        if not self.client:
-            return "", "", [], "OpenAI API key is not configured. Please add OPENAI_API_KEY to environment."
-
         work_dir = tempfile.mkdtemp(prefix="transcribe_")
         try:
-            parts = prepare_audio_parts(source_path, work_dir)
-            logger.info(f"Transcribing {source_path} via Whisper in {len(parts)} part(s)")
+            audio_path = prepare_audio(source_path, work_dir)
+            logger.info(f"Transcribing {source_path} via Deepgram ({os.path.getsize(audio_path)} bytes)")
+            result = deepgram_transcribe(audio_path).get("results", {})
 
-            texts, lines = [], []
-            for path, offset in parts:
-                text, part_lines = self._transcribe_part(path, offset)
-                texts.append(text)
-                lines.extend(part_lines)
+            lines = utterances_to_lines(result.get("utterances") or [])
+            plain = (
+                result.get("channels", [{}])[0].get("alternatives", [{}])[0].get("transcript", "")
+                if result.get("channels") else ""
+            ).strip()
+            timestamped_text = "\n".join(lines) if lines else plain
+            if not timestamped_text:
+                return "", "", [], "No speech was found in this file. Please ensure the audio contains clear speech."
 
-            transcript = " ".join(t for t in texts if t).strip()
-            if not transcript:
-                return "", "", [], "Whisper API returned an empty transcription. Please ensure the audio contains clear speech."
-
-            timestamped_text = "\n".join(lines) if lines else transcript
             if not summarize:
                 return timestamped_text, "", [], None
 
             summary = self._summarize(timestamped_text, mode)
             return timestamped_text, summary, parse_chapters(summary), None
 
+        except TranscriptionError as e:
+            return "", "", [], str(e)
         except Exception as e:
-            error_msg = str(e)
-            logger.error(f"Whisper transcription error: {error_msg}")
-
-            lowered = error_msg.lower()
-            if "api_key" in lowered or "api key" in lowered or "401" in lowered:
-                return "", "", [], "Invalid or missing OpenAI API key."
-            elif "quota" in lowered or "rate_limit" in lowered:
-                return "", "", [], "API rate limit exceeded. Please try again later."
-            elif error_msg.startswith("ffmpeg failed"):
-                return "", "", [], "Could not read audio from this file. It may be corrupted or in an unsupported format."
-            else:
-                return "", "", [], f"Transcription failed: {error_msg}"
-
+            logger.error(f"Transcription error: {e}")
+            return "", "", [], f"Transcription failed: {e}"
         finally:
             shutil.rmtree(work_dir, ignore_errors=True)
 
@@ -244,7 +290,7 @@ class AudioTranscriber:
 
         file_name = getattr(uploaded_file, 'name', 'recording.webm')
         raw_ext = file_name.split('.')[-1].lower() if '.' in file_name else 'webm'
-        # Keep the real extension so ffmpeg and Whisper detect the format correctly.
+        # Keep the real extension so ffmpeg detects the format correctly.
         safe_ext = raw_ext if raw_ext.isalnum() and len(raw_ext) <= 5 else 'webm'
 
         temp_file_path = None

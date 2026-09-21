@@ -262,8 +262,8 @@ export function useLiveTranscription(language: MicLanguage) {
     }
     show("");
 
-    // Whisper pass only when no live engine produced text. Whisper picks one
-    // language per file, so it must never overwrite a mixed-language live transcript.
+    // Full-file transcription only when no live engine produced text, so it never
+    // overwrites the live transcript the user already saw.
     if (!transcriptRef.current && audioChunksRef.current.length > 0) {
       setIsFinalizing(true);
       try {
