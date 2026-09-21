@@ -39,6 +39,7 @@ class SummarizeDocumentView(APIView):
             "status": "failed"
         }
     """
+    throttle_scope = 'ai_heavy'
     parser_classes = [MultiPartParser, FormParser]
     
     def post(self, request):

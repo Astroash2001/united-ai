@@ -49,6 +49,7 @@ class AIBrainView(APIView):
     API Endpoint for the AI Brain Assistant.
     POST /api/brain/
     """
+    throttle_scope = 'ai_text'
     parser_classes = [JSONParser]
 
     def post(self, request):

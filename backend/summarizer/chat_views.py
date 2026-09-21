@@ -22,6 +22,7 @@ class ExtractTextView(APIView):
     
     Returns the extracted text for chat functionality.
     """
+    throttle_scope = 'ai_heavy'
     parser_classes = [MultiPartParser, FormParser]
     
     def post(self, request):
@@ -91,6 +92,7 @@ class ChatWithDocumentView(APIView):
     
     Accepts a question and document context, returns AI-generated answer.
     """
+    throttle_scope = 'ai_text'
     parser_classes = [JSONParser]
     
     def post(self, request):

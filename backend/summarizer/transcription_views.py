@@ -21,6 +21,7 @@ class TranscribeAudioView(APIView):
     
     POST /api/transcribe-audio/
     """
+    throttle_scope = 'ai_heavy'
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
@@ -58,6 +59,7 @@ class TranscribeVideoView(APIView):
     
     POST /api/transcribe-video/
     """
+    throttle_scope = 'ai_heavy'
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
@@ -97,6 +99,7 @@ class DeepgramTokenView(APIView):
     POST /api/deepgram-token/
     Requires a DEEPGRAM_API_KEY with Member role or higher (Default-role keys cannot grant tokens).
     """
+    throttle_scope = 'live_token'
 
     def post(self, request):
         import json
@@ -149,6 +152,7 @@ class SummarizeTranscriptView(APIView):
     POST /api/summarize-transcript/
     Body: {"transcript": "...", "mode": "meeting"|"brainstorming", "participants": ["Name1", "Name2"]}
     """
+    throttle_scope = 'ai_text'
 
     def post(self, request):
         transcript = request.data.get('transcript', '')

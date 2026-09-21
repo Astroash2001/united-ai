@@ -8,14 +8,14 @@ from django.conf import settings
 class FileUploadSerializer(serializers.Serializer):
     """
     Serializer for validating uploaded files.
-    Only accepts PDF and TXT files within size limits.
+    Only accepts document files (PDF, text, images) within size limits.
     """
     file = serializers.FileField(required=True)
 
     def validate_file(self, file):
         """
         Validate uploaded file:
-        - Check file type (PDF or TXT only)
+        - Check file type (documents only)
         - Check file size
         - Ensure file is not empty
         """
@@ -35,9 +35,9 @@ class FileUploadSerializer(serializers.Serializer):
         
         # Check file extension
         file_extension = file.name.split('.')[-1].lower()
-        if file_extension not in settings.ALLOWED_FILE_TYPES:
+        if file_extension not in settings.ALLOWED_DOCUMENT_TYPES:
             raise serializers.ValidationError(
-                f"Invalid file type. Only {', '.join(settings.ALLOWED_FILE_TYPES)} files are allowed."
+                f"Invalid file type. Only {', '.join(settings.ALLOWED_DOCUMENT_TYPES)} files are allowed."
             )
         
         return file

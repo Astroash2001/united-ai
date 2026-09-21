@@ -103,9 +103,9 @@ class SummarizeAPITests(APITestCase):
     def test_post_with_invalid_file_type(self):
         """Test POST request with invalid file type."""
         fake_file = SimpleUploadedFile(
-            "test.jpg",
-            b"fake image content",
-            content_type="image/jpeg"
+            "test.mp3",
+            b"fake audio content",
+            content_type="audio/mpeg"
         )
         
         response = self.client.post(self.url, {'file': fake_file}, format='multipart')

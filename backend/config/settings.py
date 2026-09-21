@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
+from corsheaders.defaults import default_headers
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -15,13 +16,25 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Load environment variables from .env file
 load_dotenv(BASE_DIR / '.env')
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-change-this-in-production')
-
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ["*"]
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '')
+if not SECRET_KEY:
+    if not DEBUG:
+        raise RuntimeError("DJANGO_SECRET_KEY must be set when DEBUG is False.")
+    SECRET_KEY = 'django-insecure-local-development-only'
+
+
+def _env_list(name, default=''):
+    return [item.strip() for item in os.environ.get(name, default).split(',') if item.strip()]
+
+
+ALLOWED_HOSTS = _env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1')
+# Render sets this automatically for web services.
+if os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
+    ALLOWED_HOSTS.append(os.environ['RENDER_EXTERNAL_HOSTNAME'])
 
 # Application definition
 INSTALLED_APPS = [
@@ -53,23 +66,6 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'config.urls'
-
-# ASGI Configuration
-ASGI_APPLICATION = 'config.asgi.application'
-
-# Channel Layers (in-memory for development)
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
-    }
-}
-
-# Channel Layers (in-memory for development)
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
-    }
-}
 
 TEMPLATES = [
     {
@@ -145,9 +141,12 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# CORS Configuration - Allow frontend to make requests
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
+# CORS Configuration - only listed frontend origins may call the API
+CORS_ALLOWED_ORIGINS = _env_list(
+    'CORS_ALLOWED_ORIGINS',
+    'http://localhost:5173,http://localhost:8080,http://localhost:8081,http://localhost:3000'
+)
+CORS_ALLOW_HEADERS = (*default_headers, 'x-client-id')
 
 # REST Framework Configuration
 REST_FRAMEWORK = {
@@ -162,14 +161,26 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
+    # Per-IP limits so anonymous callers cannot drain paid AI API credits.
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.ScopedRateThrottle',
+    ],
+    # Proxies in front of Django (Render adds one); used to find the real client IP.
+    'NUM_PROXIES': int(os.environ.get('NUM_PROXIES', '0' if DEBUG else '1')),
+    'DEFAULT_THROTTLE_RATES': {
+        'ai_text': os.environ.get('THROTTLE_AI_TEXT', '60/hour'),
+        'ai_heavy': os.environ.get('THROTTLE_AI_HEAVY', '20/hour'),
+        'live_token': os.environ.get('THROTTLE_LIVE_TOKEN', '30/hour'),
+        'history': os.environ.get('THROTTLE_HISTORY', '600/hour'),
+    },
 }
 
 # File Upload Settings
 FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50 MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50 MB
 
-# Allowed file types for upload
-ALLOWED_FILE_TYPES = ['pdf', 'txt', 'png', 'jpg', 'jpeg', 'webp', 'bmp', 'tiff', 'mp3', 'wav', 'm4a', 'ogg', 'webm', 'mp4', 'avi', 'mov', 'mkv']
+# Allowed file types for document upload (summarize / extract-text)
+ALLOWED_DOCUMENT_TYPES = ['pdf', 'txt', 'md', 'csv', 'png', 'jpg', 'jpeg', 'webp', 'bmp', 'tiff']
 ALLOWED_AUDIO_TYPES = ['mp3', 'wav', 'm4a', 'ogg', 'webm', 'aac', 'flac']
 ALLOWED_VIDEO_TYPES = ['mp4', 'avi', 'mov', 'mkv', 'webm']
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
@@ -188,8 +199,10 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 # Deepgram Configuration
 DEEPGRAM_API_KEY = os.environ.get('DEEPGRAM_API_KEY', '')
 
-# Security Settings (Uncomment for production)
+# Security Settings (production)
 if not DEBUG:
+    # Render terminates TLS at its proxy and forwards the original scheme.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
