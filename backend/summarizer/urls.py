@@ -4,7 +4,7 @@ URL patterns for the summarizer app.
 from django.urls import path
 from .views import SummarizeDocumentView
 from .chat_views import ExtractTextView, ChatWithDocumentView
-from .transcription_views import TranscribeAudioView, TranscribeVideoView, SummarizeTranscriptView
+from .transcription_views import TranscribeAudioView, TranscribeVideoView, SummarizeTranscriptView, DeepgramTokenView
 from .brain_views import AIBrainView
 
 app_name = 'summarizer'
@@ -16,6 +16,7 @@ urlpatterns = [
     path('transcribe-audio/', TranscribeAudioView.as_view(), name='transcribe_audio'),
     path('transcribe-video/', TranscribeVideoView.as_view(), name='transcribe_video'),
     path('summarize-transcript/', SummarizeTranscriptView.as_view(), name='summarize_transcript'),
+    path('deepgram-token/', DeepgramTokenView.as_view(), name='deepgram_token'),
     path('brain/', AIBrainView.as_view(), name='brain'),
 ]
 

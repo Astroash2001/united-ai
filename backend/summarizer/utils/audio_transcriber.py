@@ -1,5 +1,5 @@
 """
-Audio and Video transcription utility using OpenAI Whisper API & Meeting Intelligence.
+Audio and Video transcription utility using OpenAI Whisper API & LLM gateway Meeting Intelligence.
 Includes YouTube-style Timestamp Chapters & Segment Flags.
 """
 import logging
@@ -9,6 +9,8 @@ from typing import Tuple, List, Dict, Any
 from openai import OpenAI
 from django.conf import settings
 
+from .llm_client import get_llm_client
+
 logger = logging.getLogger(__name__)
 
 # Extensions strictly allowed by OpenAI Whisper API
@@ -17,7 +19,7 @@ WHISPER_ALLOWED_EXTENSIONS = {'flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga'
 
 class AudioTranscriber:
     """
-    Wrapper for AI audio/video transcription using OpenAI Whisper & GPT-4o-mini Meeting Intelligence.
+    Wrapper for AI audio/video transcription using OpenAI Whisper & LLM gateway Meeting Intelligence.
     Generates YouTube-style interactive chapter flags and timestamps.
     """
 
@@ -26,6 +28,7 @@ class AudioTranscriber:
         if not self.api_key:
             logger.warning("OpenAI API key not configured")
         self.client = OpenAI(api_key=self.api_key) if self.api_key else None
+        self.llm_client = get_llm_client()
 
     @staticmethod
     def _format_timestamp(seconds: float) -> str:
@@ -110,7 +113,7 @@ class AudioTranscriber:
 
             timestamped_text = "\n".join(timestamped_transcript_lines) if timestamped_transcript_lines else transcript
 
-            # Generate YouTube-style Chapters & Meeting Intelligence using GPT-4o-mini
+            # Generate YouTube-style Chapters & Meeting Intelligence via the LLM gateway
             summary = ""
             try:
                 system_prompt = (
@@ -140,8 +143,10 @@ class AudioTranscriber:
                         "## ⚡ Next Experiments & Steps"
                     )
 
-                summary_response = self.client.chat.completions.create(
-                    model=settings.OPENAI_MODEL,
+                if not self.llm_client:
+                    raise RuntimeError("LLM_API_KEY not configured")
+                summary_response = self.llm_client.chat.completions.create(
+                    model=settings.LLM_MODEL,
                     messages=[
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": f"Here is the timestamped transcript:\n\n{timestamped_text[:14000]}"}

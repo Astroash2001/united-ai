@@ -1,30 +1,28 @@
 """
-AI summarization utilities using OpenAI API.
+AI summarization utilities using the LLM gateway.
 
 This module handles communication with the AI model for text summarization.
 """
 import logging
 from typing import Tuple
-from openai import OpenAI
 from django.conf import settings
+
+from .llm_client import get_llm_client
 
 logger = logging.getLogger(__name__)
 
 
 class AISummarizer:
     """
-    Wrapper class for AI-powered text summarization using OpenAI API.
+    Wrapper class for AI-powered text summarization using the LLM gateway.
     """
     
     def __init__(self):
-        """Initialize OpenAI client with API key from settings."""
-        self.api_key = settings.OPENAI_API_KEY
-        if not self.api_key:
-            logger.warning("OpenAI API key not configured")
-        self.client = OpenAI(api_key=self.api_key) if self.api_key else None
-        self.model = settings.OPENAI_MODEL
-        self.max_tokens = settings.OPENAI_MAX_TOKENS
-        self.temperature = settings.OPENAI_TEMPERATURE
+        """Initialize LLM gateway client from settings."""
+        self.client = get_llm_client()
+        self.model = settings.LLM_MODEL
+        self.max_tokens = settings.LLM_MAX_TOKENS
+        self.temperature = settings.LLM_TEMPERATURE
     
     def _truncate_text(self, text: str, max_chars: int = 12000) -> str:
         """
@@ -58,7 +56,7 @@ class AISummarizer:
         """
         # Check if API key is configured
         if not self.client:
-            return "", "AI summarization is not configured. Please add OPENAI_API_KEY to environment."
+            return "", "AI summarization is not configured. Please add LLM_API_KEY to environment."
         
         # Check if text is empty
         if not text.strip():
@@ -73,7 +71,7 @@ class AISummarizer:
 
 {truncated_text}"""
             
-            # Call OpenAI API
+            # Call LLM gateway
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[

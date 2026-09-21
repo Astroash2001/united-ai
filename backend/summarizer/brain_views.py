@@ -1,16 +1,17 @@
 """
 AI Brain Assistant view for autonomous routing and project Q&A.
-Uses gpt-4o-mini (least token model) to answer questions specifically about AI Summarizer Pro
+Uses the LLM gateway to answer questions specifically about AI Summarizer Pro
 and autonomously navigate/reroute users to requested capabilities.
 """
 import logging
 import json
-from openai import OpenAI
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import JSONParser
 from django.conf import settings
+
+from .utils.llm_client import get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,6 @@ class AIBrainView(APIView):
 
     def post(self, request):
         question = request.data.get('question', '').strip()
-        user_key = request.data.get('api_key', '').strip()
         current_route = request.data.get('current_route', '/').strip()
 
         if not question:
@@ -61,20 +61,19 @@ class AIBrainView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        api_key = user_key or getattr(settings, 'OPENAI_API_KEY', None)
-        if not api_key:
+        client = get_llm_client()
+        if not client:
             return Response(
                 {
-                    "error": "OpenAI API key missing.",
+                    "error": "AI service not configured. Please add LLM_API_KEY to environment.",
                     "status": "failed"
                 },
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
-        model_name = getattr(settings, 'OPENAI_MODEL', 'gpt-4o-mini')
+        model_name = settings.LLM_MODEL
 
         try:
-            client = OpenAI(api_key=api_key)
             system_prompt = build_system_prompt(current_route)
 
             response = client.chat.completions.create(

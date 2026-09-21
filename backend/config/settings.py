@@ -174,11 +174,16 @@ ALLOWED_AUDIO_TYPES = ['mp3', 'wav', 'm4a', 'ogg', 'webm', 'aac', 'flac']
 ALLOWED_VIDEO_TYPES = ['mp4', 'avi', 'mov', 'mkv', 'webm']
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
-# OpenAI Configuration
+# LLM Gateway Configuration (OpenAI-compatible; used for all text and vision features)
+LLM_API_KEY = os.environ.get('LLM_API_KEY', '').strip('"')
+LLM_API_BASE = os.environ.get('LLM_API_BASE', 'https://api.experientiallabs.ai/v1')
+LLM_MODEL = os.environ.get('LLM_MODEL', 'deepseek-v4-flash')
+LLM_VISION_MODEL = os.environ.get('LLM_VISION_MODEL', 'gpt-5.6-luna')
+LLM_MAX_TOKENS = int(os.environ.get('LLM_MAX_TOKENS', '1000'))
+LLM_TEMPERATURE = float(os.environ.get('LLM_TEMPERATURE', '0.7'))
+
+# OpenAI Configuration (Whisper transcription only)
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
-OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini')
-OPENAI_MAX_TOKENS = int(os.environ.get('OPENAI_MAX_TOKENS', '1000'))
-OPENAI_TEMPERATURE = float(os.environ.get('OPENAI_TEMPERATURE', '0.7'))
 
 # Deepgram Configuration
 DEEPGRAM_API_KEY = os.environ.get('DEEPGRAM_API_KEY', '')

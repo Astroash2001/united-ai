@@ -74,6 +74,20 @@ export async function transcribeVideo(file: File, mode: string = "meeting"): Pro
 }
 
 /**
+ * Fetch a short-lived Deepgram access token for live browser streaming
+ */
+export async function getDeepgramToken(): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}/deepgram-token/`, { method: "POST" });
+  const data = await response.json();
+
+  if (!response.ok || data.status === 'failed' || !data.access_token) {
+    throw new Error(data.error || "Failed to get Deepgram token");
+  }
+
+  return data.access_token;
+}
+
+/**
  * Summarize raw transcript text directly (useful for live speech where text already exists)
  */
 export async function summarizeTranscript(transcript: string, mode: string = "meeting"): Promise<{ corrected_transcript?: string; summary: string }> {

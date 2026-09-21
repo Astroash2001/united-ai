@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import ChapterFlags from "@/components/ChapterFlags";
 import VoiceVisualizer from "@/components/VoiceVisualizer";
 import RetroAudioPlayer from "@/components/RetroAudioPlayer";
-import { transcribeAudio, summarizeTranscript } from "@/services/transcription-api";
+import { transcribeAudio, summarizeTranscript, getDeepgramToken } from "@/services/transcription-api";
 import { exportTranscriptToPDF } from "@/utils/pdfExport";
 import { MultilingualTranscriptRenderer } from "@/utils/multilingual";
 
@@ -57,14 +57,15 @@ const AudioTranscribe = () => {
   const audioChunksRef = useRef<Blob[]>([]);
   const recognitionRef = useRef<any>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const backupStreamIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const deepgramSocketRef = useRef<WebSocket | null>(null);
+  const deepgramReadyRef = useRef(false);
+  const keepAliveIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const isRecordingRef = useRef(false);
   const isPausedRef = useRef(false);
   const liveTranscriptRef = useRef<string>("");
-  const hasWebSpeechResultsRef = useRef(false);
-  const sequenceIdRef = useRef(0);
-  const latestProcessedSequenceRef = useRef(0);
+  // Text that no engine will revise any more; interim words are appended after it.
+  const committedTextRef = useRef<string>("");
 
   useEffect(() => {
     isRecordingRef.current = isRecording;
@@ -74,9 +75,12 @@ const AudioTranscribe = () => {
   useEffect(() => {
     return () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-      if (backupStreamIntervalRef.current) clearInterval(backupStreamIntervalRef.current);
+      if (keepAliveIntervalRef.current) clearInterval(keepAliveIntervalRef.current);
       if (recognitionRef.current) {
         try { recognitionRef.current.stop(); } catch (e) {}
+      }
+      if (deepgramSocketRef.current) {
+        try { deepgramSocketRef.current.close(); } catch (e) {}
       }
       if (recordedAudioUrl) URL.revokeObjectURL(recordedAudioUrl);
       if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl);
@@ -89,38 +93,131 @@ const AudioTranscribe = () => {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const startBackupStreamer = () => {
-    if (backupStreamIntervalRef.current) clearInterval(backupStreamIntervalRef.current);
-    backupStreamIntervalRef.current = setInterval(async () => {
-      if (
-        isRecordingRef.current &&
-        !isPausedRef.current &&
-        !hasWebSpeechResultsRef.current &&
-        audioChunksRef.current.length > 0
-      ) {
-        sequenceIdRef.current += 1;
-        const currentSeq = sequenceIdRef.current;
-        try {
-          const chunkBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-          const chunkFile = new File([chunkBlob], `live_slice.webm`, { type: "audio/webm" });
-          const data = await transcribeAudio(chunkFile);
-          
-          if (currentSeq > latestProcessedSequenceRef.current) {
-            latestProcessedSequenceRef.current = currentSeq;
-            if (data.transcript && data.transcript.trim().length > 0) {
-              const text = data.transcript.trim();
-              liveTranscriptRef.current = text;
-              setLiveTranscript(text);
-            }
-          }
-        } catch (e) {
-          // Silently ignore slice transcription errors
-        }
-      }
-    }, 750);
+  const showLiveText = (interimText: string) => {
+    const fullText = `${committedTextRef.current} ${interimText}`.replace(/\s+/g, " ").trim();
+    liveTranscriptRef.current = fullText;
+    setLiveTranscript(fullText);
   };
 
-  // --- GUARANTEED REAL-TIME LIVE SPEECH-TO-TEXT ENGINE ---
+  const commitText = (finalText: string) => {
+    committedTextRef.current = `${committedTextRef.current} ${finalText}`.replace(/\s+/g, " ").trim();
+    showLiveText("");
+  };
+
+  // Deepgram model settings per dropdown option. "multi" transcribes code-switched
+  // Hindi + English, writing each word in its own script (Devanagari / Latin).
+  const getDeepgramLanguage = (lang: string) => {
+    if (lang === "hi-IN") return "hi";
+    if (lang === "en-US") return "en";
+    return "multi";
+  };
+
+  // --- PRIMARY ENGINE: DEEPGRAM NOVA-3 LIVE STREAMING ---
+  // Finalized phrases are committed once and never rewritten, so earlier English
+  // stays English when you switch to Hindi.
+  const startDeepgramStream = async (): Promise<boolean> => {
+    let token: string;
+    try {
+      token = await getDeepgramToken();
+    } catch (e) {
+      console.warn("Deepgram unavailable, falling back to browser speech engine:", e);
+      return false;
+    }
+
+    const params = new URLSearchParams({
+      model: "nova-3",
+      language: getDeepgramLanguage(micLanguage),
+      interim_results: "true",
+      smart_format: "true",
+      punctuate: "true",
+      endpointing: "100",
+    });
+
+    return new Promise((resolve) => {
+      const socket = new WebSocket(`wss://api.deepgram.com/v1/listen?${params}`, ["bearer", token]);
+      deepgramSocketRef.current = socket;
+      let opened = false;
+
+      socket.onopen = () => {
+        opened = true;
+        if (!isRecordingRef.current) {
+          // Recording was stopped while the socket was still connecting.
+          socket.close();
+          resolve(true);
+          return;
+        }
+        deepgramReadyRef.current = true;
+        // Send audio captured while the socket was connecting (includes the WebM header).
+        audioChunksRef.current.forEach((chunk) => socket.send(chunk));
+        resolve(true);
+      };
+
+      socket.onmessage = (message) => {
+        const data = JSON.parse(message.data);
+        if (data.type !== "Results") return;
+        const text = data.channel?.alternatives?.[0]?.transcript ?? "";
+        if (data.is_final) {
+          if (text) commitText(text);
+        } else {
+          showLiveText(text);
+        }
+      };
+
+      socket.onerror = () => {
+        if (!opened) resolve(false);
+      };
+
+      socket.onclose = () => {
+        deepgramReadyRef.current = false;
+        if (keepAliveIntervalRef.current) clearInterval(keepAliveIntervalRef.current);
+        if (!opened) {
+          resolve(false);
+          return;
+        }
+        // Connection dropped mid-recording: continue with the browser engine.
+        if (isRecordingRef.current && deepgramSocketRef.current === socket) {
+          deepgramSocketRef.current = null;
+          commitText("");
+          startWebSpeech();
+        }
+      };
+    });
+  };
+
+  // --- FALLBACK ENGINE: BROWSER WEB SPEECH API (single language only) ---
+  const startWebSpeech = () => {
+    const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionClass) return;
+
+    const recognition = new SpeechRecognitionClass();
+    recognitionRef.current = recognition;
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    recognition.lang = micLanguage;
+
+    recognition.onresult = (event: any) => {
+      let interimText = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          commitText(result[0].transcript);
+        } else {
+          interimText += result[0].transcript + " ";
+        }
+      }
+      showLiveText(interimText);
+    };
+
+    recognition.onend = () => {
+      if (isRecordingRef.current && !isPausedRef.current) {
+        try { recognition.start(); } catch (e) {}
+      }
+    };
+
+    try { recognition.start(); } catch (e) {}
+  };
+
   const startLiveRecording = async () => {
     setError("");
     setLiveTranscript("");
@@ -128,12 +225,9 @@ const AudioTranscribe = () => {
     setSummary("");
     setRecordedAudioBlob(null);
     liveTranscriptRef.current = "";
-    hasWebSpeechResultsRef.current = false;
-    sequenceIdRef.current = 0;
-    latestProcessedSequenceRef.current = 0;
-
-    const span = document.getElementById("live-text-span");
-    if (span) span.textContent = "";
+    committedTextRef.current = "";
+    deepgramReadyRef.current = false;
+    recognitionRef.current = null;
 
     if (recordedAudioUrl) URL.revokeObjectURL(recordedAudioUrl);
     setRecordedAudioUrl(null);
@@ -144,24 +238,42 @@ const AudioTranscribe = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setMediaStream(stream);
 
-      // 2. Setup MediaRecorder for high-fidelity audio capture
+      // 2. MediaRecorder captures audio for playback and streams chunks to Deepgram
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
+          const socket = deepgramSocketRef.current;
+          if (deepgramReadyRef.current && socket?.readyState === WebSocket.OPEN) {
+            socket.send(event.data);
+          }
         }
       };
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         setRecordedAudioBlob(audioBlob);
-        const url = URL.createObjectURL(audioBlob);
-        setRecordedAudioUrl(url);
+        setRecordedAudioUrl(URL.createObjectURL(audioBlob));
 
-        // High accuracy Whisper pass on stop
-        if (audioChunksRef.current.length > 0) {
+        // Let Deepgram flush its last words, then close.
+        const socket = deepgramSocketRef.current;
+        deepgramSocketRef.current = null;
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          await new Promise<void>((resolve) => {
+            const timeout = setTimeout(() => { socket.close(); resolve(); }, 3000);
+            socket.addEventListener("close", () => { clearTimeout(timeout); resolve(); });
+            socket.send(JSON.stringify({ type: "CloseStream" }));
+          });
+        }
+
+        commitText("");
+        setTranscript(liveTranscriptRef.current);
+
+        // Whisper pass only when no live engine produced text. Whisper picks one
+        // language per file, so it must never overwrite a mixed-language live transcript.
+        if (!liveTranscriptRef.current && audioChunksRef.current.length > 0) {
           setIsProcessingAudio(true);
           try {
             const file = new File([audioBlob], `voice_rec_${Date.now()}.webm`, { type: "audio/webm" });
@@ -178,61 +290,10 @@ const AudioTranscribe = () => {
         }
       };
 
-      mediaRecorder.start(100);
+      mediaRecorder.start(250);
 
-      // 3. Web Speech API Engine with 0ms DOM Streaming
-      const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-      if (SpeechRecognitionClass) {
-        const recognition = new SpeechRecognitionClass();
-        recognitionRef.current = recognition;
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.maxAlternatives = 1;
-        recognition.lang = micLanguage;
-        
-        let sessionPrefixText = "";
-
-        recognition.onstart = () => {
-          // When a new WebSpeech session starts (after pause or silent timeout), 
-          // lock in everything we've transcribed so far.
-          sessionPrefixText = liveTranscriptRef.current;
-        };
-
-        recognition.onresult = (event: any) => {
-          hasWebSpeechResultsRef.current = true;
-          let currentSessionText = "";
-
-          for (let i = 0; i < event.results.length; i++) {
-            currentSessionText += event.results[i][0].transcript + " ";
-          }
-
-          const fullText = (sessionPrefixText + " " + currentSessionText).replace(/\s+/g, " ").trim();
-          if (fullText.length > 0) {
-            liveTranscriptRef.current = fullText;
-            setLiveTranscript(fullText);
-          }
-        };
-
-        recognition.onerror = () => {
-          if (isRecordingRef.current && !isPausedRef.current) {
-            try { recognition.start(); } catch (e) {}
-          }
-        };
-
-        recognition.onend = () => {
-          if (isRecordingRef.current && !isPausedRef.current) {
-            try { recognition.start(); } catch (e) {}
-          }
-        };
-
-        try { recognition.start(); } catch (e) {}
-      }
-
-      // 4. Fallback Streamer: If WebSpeech API is unsupported/blocked, use the backend Whisper slices.
-      // Strict sequence ordering prevents out-of-order HTTP responses from overwriting newer text (the "earlier versions" bug).
-      startBackupStreamer();
-
+      isRecordingRef.current = true;
+      isPausedRef.current = false;
       setIsRecording(true);
       setIsPaused(false);
       setRecordingTime(0);
@@ -240,6 +301,13 @@ const AudioTranscribe = () => {
       timerIntervalRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
+
+      // 3. Live engine: Deepgram first, browser Web Speech if Deepgram is unavailable
+      const deepgramStarted = await startDeepgramStream();
+      if (!deepgramStarted && isRecordingRef.current) {
+        deepgramSocketRef.current = null;
+        startWebSpeech();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Microphone permission denied or device unavailable.");
     }
@@ -247,42 +315,50 @@ const AudioTranscribe = () => {
 
   const pauseLiveRecording = () => {
     if (mediaRecorderRef.current && isRecording && !isPaused) {
+      isPausedRef.current = true;
       mediaRecorderRef.current.pause();
       if (recognitionRef.current) {
         try { recognitionRef.current.stop(); } catch (e) {}
       }
+      // Deepgram closes idle streams after ~10s without audio.
+      const socket = deepgramSocketRef.current;
+      if (socket) {
+        keepAliveIntervalRef.current = setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: "KeepAlive" }));
+          }
+        }, 5000);
+      }
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-      if (backupStreamIntervalRef.current) clearInterval(backupStreamIntervalRef.current);
       setIsPaused(true);
     }
   };
 
   const resumeLiveRecording = () => {
     if (mediaRecorderRef.current && isRecording && isPaused) {
+      isPausedRef.current = false;
       mediaRecorderRef.current.resume();
+      if (keepAliveIntervalRef.current) clearInterval(keepAliveIntervalRef.current);
       if (recognitionRef.current) {
         try { recognitionRef.current.start(); } catch (e) {}
       }
       timerIntervalRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
-      startBackupStreamer();
       setIsPaused(false);
     }
   };
 
   const stopLiveRecording = async () => {
     if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
+      isRecordingRef.current = false;
       if (recognitionRef.current) {
         try { recognitionRef.current.stop(); } catch (e) {}
       }
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-      if (backupStreamIntervalRef.current) clearInterval(backupStreamIntervalRef.current);
-      
-      setLiveTranscript(liveTranscriptRef.current);
-      setTranscript(liveTranscriptRef.current);
-      
+      if (keepAliveIntervalRef.current) clearInterval(keepAliveIntervalRef.current);
+      mediaRecorderRef.current.stop();
+
       setIsRecording(false);
       setIsPaused(false);
 
@@ -401,7 +477,7 @@ const AudioTranscribe = () => {
     setError("");
     setRecordingTime(0);
     liveTranscriptRef.current = "";
-    hasWebSpeechResultsRef.current = false;
+    committedTextRef.current = "";
     const span = document.getElementById("live-text-span");
     if (span) span.textContent = "";
     if (fileInputRef.current) fileInputRef.current.value = "";
