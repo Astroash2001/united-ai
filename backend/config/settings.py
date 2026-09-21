@@ -8,7 +8,6 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
-from corsheaders.defaults import default_headers
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -146,7 +145,6 @@ CORS_ALLOWED_ORIGINS = _env_list(
     'CORS_ALLOWED_ORIGINS',
     'http://localhost:5173,http://localhost:8080,http://localhost:8081,http://localhost:3000'
 )
-CORS_ALLOW_HEADERS = (*default_headers, 'x-client-id')
 
 # REST Framework Configuration
 REST_FRAMEWORK = {
@@ -171,7 +169,6 @@ REST_FRAMEWORK = {
         'ai_text': os.environ.get('THROTTLE_AI_TEXT', '60/hour'),
         'ai_heavy': os.environ.get('THROTTLE_AI_HEAVY', '20/hour'),
         'live_token': os.environ.get('THROTTLE_LIVE_TOKEN', '30/hour'),
-        'history': os.environ.get('THROTTLE_HISTORY', '600/hour'),
     },
 }
 

@@ -80,8 +80,6 @@ export function useLiveTranscription(language: MicLanguage) {
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [engine, setEngine] = useState<LiveEngine>(null);
   const [error, setError] = useState("");
-  /** Increments each time a recording finishes and its transcript is final. */
-  const [completedCount, setCompletedCount] = useState(0);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -279,7 +277,6 @@ export function useLiveTranscription(language: MicLanguage) {
         setIsFinalizing(false);
       }
     }
-    setCompletedCount((count) => count + 1);
   }, [show]);
 
   const start = useCallback(async () => {
@@ -400,7 +397,6 @@ export function useLiveTranscription(language: MicLanguage) {
     isFinalizing,
     engine,
     error,
-    completedCount,
     start,
     pause,
     resume,

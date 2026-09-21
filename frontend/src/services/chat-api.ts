@@ -1,5 +1,9 @@
 import { apiFetch, parseJsonResponse, readTextStream } from "./config";
-import type { ChatMessage } from "./history-api";
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
 
 export interface ExtractTextResponse {
   text: string;

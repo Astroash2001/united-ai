@@ -8,7 +8,6 @@ import Index from "./pages/Index";
 import ChatWithDocument from "./pages/ChatWithDocument";
 import AudioTranscribe from "./pages/AudioTranscribe";
 import VideoTranscribe from "./pages/VideoTranscribe";
-import History from "./pages/History";
 import NotFound from "./pages/NotFound";
 import { AIBrainWidget } from "@/components/AIBrainWidget";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -42,7 +41,6 @@ const App = () => (
           <Route path="/chat-with-document" element={<ChatWithDocument />} />
           <Route path="/audio" element={<AudioTranscribe />} />
           <Route path="/video" element={<VideoTranscribe />} />
-          <Route path="/history" element={<History />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

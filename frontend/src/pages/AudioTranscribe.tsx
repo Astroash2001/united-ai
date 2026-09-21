@@ -15,7 +15,6 @@ import {
   summarizeTranscript,
   transcribeAudio,
 } from "@/services/transcription-api";
-import { saveHistory, updateHistory } from "@/services/history-api";
 
 const LiveTextDisplay = memo(({ text, isRecording }: { text: string; isRecording: boolean }) => (
   <MultilingualTranscriptRenderer text={text} isRecording={isRecording} />
@@ -46,7 +45,6 @@ const AudioTranscribe = () => {
   const [micLanguage, setMicLanguage] = useState<MicLanguage>("en-IN");
   const [isSummarizing, setIsSummarizing] = useState(false);
   const live = useLiveTranscription(micLanguage);
-  const liveHistoryIdRef = useRef<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -57,23 +55,6 @@ const AudioTranscribe = () => {
       if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl);
     };
   }, [audioPreviewUrl]);
-
-  // Save each finished live recording to history.
-  const liveTranscriptRef = useRef(live.transcript);
-  liveTranscriptRef.current = live.transcript;
-  useEffect(() => {
-    if (live.completedCount === 0) return;
-    const text = liveTranscriptRef.current;
-    liveHistoryIdRef.current = null;
-    if (!text.trim()) return;
-    saveHistory({
-      kind: "live",
-      title: `Live recording ${new Date().toLocaleString()}`,
-      transcript: text,
-    }).then((id) => {
-      liveHistoryIdRef.current = id;
-    });
-  }, [live.completedCount]);
 
   const startRecording = () => {
     setError("");
@@ -91,11 +72,6 @@ const AudioTranscribe = () => {
       const correctedTranscript = data.corrected_transcript || live.transcript;
       live.replaceTranscript(correctedTranscript);
       setSummary(data.summary || "");
-      if (liveHistoryIdRef.current) {
-        updateHistory(liveHistoryIdRef.current, { transcript: correctedTranscript, summary: data.summary || "" }).catch(
-          (err) => console.warn("History update skipped:", err),
-        );
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate AI summary.");
     } finally {
@@ -124,13 +100,6 @@ const AudioTranscribe = () => {
       setUploadTranscript(data.transcript);
       setSummary(data.summary || "");
       setChapters(data.chapters || []);
-      saveHistory({
-        kind: "audio",
-        title: file.name,
-        transcript: data.transcript,
-        summary: data.summary || "",
-        chapters: data.chapters || [],
-      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to transcribe audio file.");
     } finally {

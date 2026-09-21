@@ -1,10 +1,8 @@
-import { useState, useRef, useEffect, ChangeEvent, FormEvent } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useRef, ChangeEvent, FormEvent } from "react";
 import { Globe, Link2, Loader2 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { extractText, extractUrl, chatWithDocument } from "@/services/chat-api";
-import { ChatMessage, getHistory, saveHistory, updateHistory } from "@/services/history-api";
+import { ChatMessage, extractText, extractUrl, chatWithDocument } from "@/services/chat-api";
 
 const DOCUMENT_EXTENSIONS = ["pdf", "txt", "md", "csv", "png", "jpg", "jpeg", "webp"];
 
@@ -15,7 +13,6 @@ interface LoadedDocument {
 }
 
 const ChatWithDocument = () => {
-  const [searchParams] = useSearchParams();
   const [activeDoc, setActiveDoc] = useState<LoadedDocument | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
@@ -28,22 +25,6 @@ const ChatWithDocument = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const historyIdRef = useRef<number | null>(null);
-
-  // Continue a saved chat: /chat-with-document?history=<id>
-  const historyParam = Number(searchParams.get("history")) || null;
-  useEffect(() => {
-    if (!historyParam) return;
-    setIsUploading(true);
-    getHistory(historyParam)
-      .then((entry) => {
-        historyIdRef.current = entry.id;
-        setActiveDoc({ name: entry.title, text: entry.transcript, sourceUrl: entry.source_url || undefined });
-        setMessages(entry.messages);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load saved chat"))
-      .finally(() => setIsUploading(false));
-  }, [historyParam]);
 
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
@@ -55,7 +36,6 @@ const ChatWithDocument = () => {
   };
 
   const openDocument = (loaded: LoadedDocument) => {
-    historyIdRef.current = null;
     setActiveDoc(loaded);
     setMessages([]);
   };
@@ -131,24 +111,6 @@ const ChatWithDocument = () => {
     }
   };
 
-  /** Save the chat to history: create the entry on the first answer, update it after. */
-  const persistChat = async (chat: ChatMessage[]) => {
-    if (!activeDoc) return;
-    if (historyIdRef.current) {
-      updateHistory(historyIdRef.current, { messages: chat }).catch((err) =>
-        console.warn("History update skipped:", err),
-      );
-      return;
-    }
-    historyIdRef.current = await saveHistory({
-      kind: "chat",
-      title: activeDoc.name,
-      transcript: activeDoc.text,
-      messages: chat,
-      source_url: activeDoc.sourceUrl,
-    });
-  };
-
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || !activeDoc || isSending) return;
 
@@ -171,9 +133,7 @@ const ChatWithDocument = () => {
         // Answer streams into the last message as it is generated.
         onDelta: (answerSoFar) => setMessages([...newMessages, { role: "assistant", content: answerSoFar }]),
       });
-      const finalMessages: ChatMessage[] = [...newMessages, { role: "assistant", content: data.answer }];
-      setMessages(finalMessages);
-      persistChat(finalMessages);
+      setMessages([...newMessages, { role: "assistant", content: data.answer }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to get AI answer. Check connection.");
     } finally {
@@ -189,7 +149,6 @@ const ChatWithDocument = () => {
   };
 
   const handleRemoveDocument = () => {
-    historyIdRef.current = null;
     setActiveDoc(null);
     setMessages([]);
     setError("");

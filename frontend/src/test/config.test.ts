@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { getClientId, parseJsonResponse, readTextStream } from "@/services/config";
+import { parseJsonResponse, readTextStream } from "@/services/config";
 
 function streamResponse(lines: string[], status = 200): Response {
   const encoder = new TextEncoder();
@@ -43,13 +43,5 @@ describe("parseJsonResponse", () => {
   it("explains rate limiting", async () => {
     const response = new Response(JSON.stringify({ detail: "Request was throttled." }), { status: 429 });
     await expect(parseJsonResponse(response, "failed")).rejects.toThrow("Too many requests");
-  });
-});
-
-describe("getClientId", () => {
-  it("returns the same UUID on every call", () => {
-    const id = getClientId();
-    expect(id).toMatch(/^[0-9a-f-]{36}$/);
-    expect(getClientId()).toBe(id);
   });
 });

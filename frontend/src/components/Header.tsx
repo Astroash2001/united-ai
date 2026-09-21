@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, FileText, Mic, Video, MessageSquare, History } from "lucide-react";
+import { Menu, X, FileText, Mic, Video, MessageSquare } from "lucide-react";
 
 const Header = () => {
   const location = useLocation();
@@ -11,7 +11,6 @@ const Header = () => {
     { label: "AUDIO", path: "/audio", icon: Mic },
     { label: "VIDEO", path: "/video", icon: Video },
     { label: "CHAT", path: "/chat-with-document", icon: MessageSquare },
-    { label: "HISTORY", path: "/history", icon: History },
   ];
 
   return (
