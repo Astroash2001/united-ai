@@ -2,93 +2,128 @@
 API Views for Audio and Video Transcription with Chapter Flags.
 """
 import logging
+import shutil
+import tempfile
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 
 from django.conf import settings
-from .utils.audio_transcriber import transcribe_audio_video, WHISPER_ALLOWED_EXTENSIONS
+from .utils.audio_transcriber import transcribe_audio_video, audio_transcriber
+from .utils.youtube import is_youtube_url, download_youtube_audio
 from .utils.llm_client import get_llm_client
+from .utils.transcript_transform import transform_transcript
 
 logger = logging.getLogger(__name__)
 
 
-class TranscribeAudioView(APIView):
+class _TranscribeUploadView(APIView):
+    """
+    Shared upload handling for audio and video transcription.
+    Form fields: file (required), mode ('meeting' | 'brainstorming'),
+    summarize ('false' skips the AI summary and chapters).
+    """
+    throttle_scope = 'ai_heavy'
+    parser_classes = [MultiPartParser, FormParser]
+    missing_file_error = "No file provided. Field 'file' is required."
 
+    def post(self, request):
+        uploaded_file = request.FILES.get('file')
+        mode = request.data.get('mode', 'meeting')
+        summarize = str(request.data.get('summarize', 'true')).lower() != 'false'
+
+        if not uploaded_file:
+            return Response(
+                {"error": self.missing_file_error, "status": "failed"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if uploaded_file.size > settings.MAX_MEDIA_FILE_SIZE:
+            max_mb = settings.MAX_MEDIA_FILE_SIZE // (1024 * 1024)
+            return Response(
+                {"error": f"File exceeds the maximum allowed size of {max_mb}MB.", "status": "failed"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        transcript, summary, chapters, error = transcribe_audio_video(uploaded_file, mode=mode, summarize=summarize)
+        if error:
+            return Response(
+                {"error": error, "status": "failed"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        return Response(
+            {
+                "transcript": transcript,
+                "summary": summary,
+                "chapters": chapters,
+                "filename": uploaded_file.name,
+                "status": "success"
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+class TranscribeAudioView(_TranscribeUploadView):
     """
     API endpoint for Audio and Live Meeting transcription with Timestamp Chapters.
-    
+
     POST /api/transcribe-audio/
     """
-    throttle_scope = 'ai_heavy'
-    parser_classes = [MultiPartParser, FormParser]
-
-    def post(self, request):
-        uploaded_file = request.FILES.get('file')
-        mode = request.data.get('mode', 'meeting')
-
-        if not uploaded_file:
-            return Response(
-                {"error": "No audio file provided. Field 'file' is required.", "status": "failed"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        transcript, summary, chapters, error = transcribe_audio_video(uploaded_file, mode=mode)
-        if error:
-            return Response(
-                {"error": error, "status": "failed"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-        return Response(
-            {
-                "transcript": transcript,
-                "summary": summary,
-                "chapters": chapters,
-                "filename": uploaded_file.name,
-                "status": "success"
-            },
-            status=status.HTTP_200_OK
-        )
+    missing_file_error = "No audio file provided. Field 'file' is required."
 
 
-class TranscribeVideoView(APIView):
+class TranscribeVideoView(_TranscribeUploadView):
     """
     API endpoint for Video transcription with Timestamp Chapters.
-    
+
     POST /api/transcribe-video/
     """
+    missing_file_error = "No video file provided. Field 'file' is required."
+
+
+class TranscribeYouTubeView(APIView):
+    """
+    API endpoint for YouTube video transcription with Timestamp Chapters.
+
+    POST /api/transcribe-youtube/
+    Body: {"url": "https://www.youtube.com/watch?v=...", "mode": "meeting"}
+    """
     throttle_scope = 'ai_heavy'
-    parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
-        uploaded_file = request.FILES.get('file')
+        url = str(request.data.get('url', '')).strip()
         mode = request.data.get('mode', 'meeting')
 
-        if not uploaded_file:
+        if not is_youtube_url(url):
             return Response(
-                {"error": "No video file provided. Field 'file' is required.", "status": "failed"},
+                {"error": "Please provide a valid YouTube video link.", "status": "failed"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        transcript, summary, chapters, error = transcribe_audio_video(uploaded_file, mode=mode)
-        if error:
-            return Response(
-                {"error": error, "status": "failed"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        work_dir = tempfile.mkdtemp(prefix="youtube_")
+        try:
+            audio_path, title, error = download_youtube_audio(url, work_dir)
+            if error:
+                return Response({"error": error, "status": "failed"}, status=status.HTTP_502_BAD_GATEWAY)
 
-        return Response(
-            {
-                "transcript": transcript,
-                "summary": summary,
-                "chapters": chapters,
-                "filename": uploaded_file.name,
-                "status": "success"
-            },
-            status=status.HTTP_200_OK
-        )
+            transcript, summary, chapters, error = audio_transcriber.transcribe_path(audio_path, mode=mode)
+            if error:
+                return Response({"error": error, "status": "failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            return Response(
+                {
+                    "transcript": transcript,
+                    "summary": summary,
+                    "chapters": chapters,
+                    "filename": title,
+                    "status": "success"
+                },
+                status=status.HTTP_200_OK
+            )
+        finally:
+            shutil.rmtree(work_dir, ignore_errors=True)
 
 
 class DeepgramTokenView(APIView):
@@ -182,6 +217,7 @@ class SummarizeTranscriptView(APIView):
                     "Perform two tasks:\n"
                     "1. SEMANTIC SPEAKER CORRECTION: Review raw transcript (which may contain English, Hindi, or Code-Mixed Hinglish). "
                     "Use dialogue context, self-identifications, and conversational flow to correct speaker names.\n"
+                    "Keep every line break and every [mm:ss] timestamp at the start of its line; you may replace a [Speaker N] label with the person's name.\n"
                     "2. BRAINSTORMING SUMMARY: Generate structured markdown notes (Core Ideas, Key Insights, Next Steps). "
                     "Preserve all key concepts, action items, and language meaning accurately.\n\n"
                     "Format output strictly as JSON:\n"
@@ -197,6 +233,7 @@ class SummarizeTranscriptView(APIView):
                     "Perform two tasks:\n"
                     "1. SEMANTIC SPEAKER CORRECTION: Review raw transcript (which may contain English, Hindi, or Code-Mixed Hinglish). "
                     "Use dialogue context, self-identifications (e.g. 'I am Avinash', 'Sahil speaking'), and turn-taking to correct speaker labels.\n"
+                    "Keep every line break and every [mm:ss] timestamp at the start of its line; you may replace a [Speaker N] label with the person's name.\n"
                     "2. EXECUTIVE SUMMARY: Generate structured markdown notes (Executive Summary, Key Decisions, Action Items assigned to @person). "
                     "Preserve all technical terms, key decisions, and core meanings accurately.\n\n"
                     "Format output strictly as JSON:\n"
@@ -239,3 +276,22 @@ class SummarizeTranscriptView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
+class TransformTranscriptView(APIView):
+    """
+    Show a transcript in Latin letters (Hinglish) or translated to English.
+
+    POST /api/transform-transcript/
+    Body: {"text": "...", "target": "latin" | "english"}
+    """
+    throttle_scope = 'ai_text'
+
+    def post(self, request):
+        text = str(request.data.get('text', ''))
+        target = str(request.data.get('target', ''))
+
+        result, error = transform_transcript(text, target)
+        if error:
+            return Response({"error": error, "status": "failed"}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"text": result, "target": target, "status": "success"}, status=status.HTTP_200_OK)

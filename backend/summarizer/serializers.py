@@ -1,8 +1,13 @@
 """
-Serializers for file upload validation.
+Serializers for file upload validation and saved history.
 """
 from rest_framework import serializers
 from django.conf import settings
+
+from .models import HistoryEntry
+
+# Largest transcript/document text stored in one history entry.
+MAX_HISTORY_TEXT_CHARS = 2_000_000
 
 
 class FileUploadSerializer(serializers.Serializer):
@@ -57,3 +62,42 @@ class ErrorResponseSerializer(serializers.Serializer):
     """
     error = serializers.CharField()
     status = serializers.CharField()
+
+
+class HistoryEntrySerializer(serializers.ModelSerializer):
+    """Full history entry, used for create, update, and detail views."""
+
+    class Meta:
+        model = HistoryEntry
+        fields = [
+            "id", "kind", "title", "transcript", "summary", "chapters",
+            "messages", "source_url", "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate_transcript(self, value):
+        if len(value) > MAX_HISTORY_TEXT_CHARS:
+            raise serializers.ValidationError("Text is too long to save.")
+        return value
+
+    def validate_messages(self, value):
+        if not isinstance(value, list) or len(value) > 500:
+            raise serializers.ValidationError("Messages must be a list of at most 500 items.")
+        for message in value:
+            if not isinstance(message, dict) or message.get("role") not in ("user", "assistant") \
+                    or not isinstance(message.get("content"), str):
+                raise serializers.ValidationError("Each message needs a role (user/assistant) and text content.")
+        return value
+
+
+class HistoryListSerializer(serializers.ModelSerializer):
+    """Compact entry for the history list (no large text fields)."""
+    preview = serializers.SerializerMethodField()
+
+    class Meta:
+        model = HistoryEntry
+        fields = ["id", "kind", "title", "preview", "source_url", "created_at", "updated_at"]
+
+    def get_preview(self, entry):
+        text = entry.summary or entry.transcript
+        return text[:160]

@@ -176,14 +176,15 @@ REST_FRAMEWORK = {
 }
 
 # File Upload Settings
-FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50 MB
-DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50 MB
+# Uploads above 5MB are streamed to a temp file instead of held in memory.
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50 MB (non-file request body, e.g. document chat context)
 
 # Allowed file types for document upload (summarize / extract-text)
 ALLOWED_DOCUMENT_TYPES = ['pdf', 'txt', 'md', 'csv', 'png', 'jpg', 'jpeg', 'webp', 'bmp', 'tiff']
-ALLOWED_AUDIO_TYPES = ['mp3', 'wav', 'm4a', 'ogg', 'webm', 'aac', 'flac']
-ALLOWED_VIDEO_TYPES = ['mp4', 'avi', 'mov', 'mkv', 'webm']
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB (documents)
+# Audio/video are compressed with ffmpeg and split for Whisper, so larger files work.
+MAX_MEDIA_FILE_SIZE = int(os.environ.get('MAX_MEDIA_FILE_SIZE_MB', '200')) * 1024 * 1024
 
 # LLM Gateway Configuration (OpenAI-compatible; used for all text and vision features)
 LLM_API_KEY = os.environ.get('LLM_API_KEY', '').strip('"')
@@ -198,6 +199,10 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
 # Deepgram Configuration
 DEEPGRAM_API_KEY = os.environ.get('DEEPGRAM_API_KEY', '')
+
+# Optional web sources for document chat
+JINA_API_KEY = os.environ.get('JINA_API_KEY', '')  # Jina Reader works without a key, at a lower rate limit
+TAVILY_API_KEY = os.environ.get('TAVILY_API_KEY', '')  # Tavily web search
 
 # Security Settings (production)
 if not DEBUG:

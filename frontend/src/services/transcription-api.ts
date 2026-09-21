@@ -2,7 +2,7 @@
  * API Service for Audio, Video, and Live Meeting Transcription
  */
 
-import { apiFetch } from "./config";
+import { apiFetch, parseJsonResponse } from "./config";
 
 export interface ChapterFlag {
   timestamp: string;
@@ -19,68 +19,71 @@ export interface TranscriptionResponse {
   error?: string;
 }
 
-/**
- * Upload an audio file or live recorded blob for transcription & AI summary
- */
-export async function transcribeAudio(file: File | Blob, mode: string = "meeting"): Promise<TranscriptionResponse> {
+export interface TranscribeOptions {
+  mode?: string;
+  /** false skips the AI summary and chapters (faster, cheaper). */
+  summarize?: boolean;
+}
+
+/** Largest audio/video upload the backend accepts (it compresses and splits for Whisper). */
+export const MAX_MEDIA_UPLOAD_MB = 200;
+
+async function transcribeUpload(path: string, file: File | Blob, options: TranscribeOptions, fallbackError: string) {
   const formData = new FormData();
-  
   if (file instanceof File) {
     formData.append("file", file);
   } else {
     // Ensure live recording blob is named recording.webm for OpenAI Whisper API
     formData.append("file", file, "recording.webm");
   }
+  formData.append("mode", options.mode ?? "meeting");
+  formData.append("summarize", String(options.summarize ?? true));
 
-  formData.append("mode", mode);
+  const response = await apiFetch(path, { method: "POST", body: formData });
+  return parseJsonResponse<TranscriptionResponse>(response, fallbackError);
+}
 
-  const response = await apiFetch(`/transcribe-audio/`, {
-    method: "POST",
-    body: formData,
-  });
-
-  const data = await response.json();
-
-  if (!response.ok || data.status === 'failed') {
-    throw new Error(data.error || "Failed to transcribe audio file");
-  }
-
-  return data;
+/**
+ * Upload an audio file or live recorded blob for transcription & AI summary
+ */
+export function transcribeAudio(file: File | Blob, options: TranscribeOptions = {}): Promise<TranscriptionResponse> {
+  return transcribeUpload("/transcribe-audio/", file, options, "Failed to transcribe audio file");
 }
 
 /**
  * Upload a video file for transcription & AI summary
  */
-export async function transcribeVideo(file: File, mode: string = "meeting"): Promise<TranscriptionResponse> {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("mode", mode);
+export function transcribeVideo(file: File, options: TranscribeOptions = {}): Promise<TranscriptionResponse> {
+  return transcribeUpload("/transcribe-video/", file, options, "Failed to transcribe video file");
+}
 
-  const response = await apiFetch(`/transcribe-video/`, {
+/**
+ * Transcribe a YouTube video by link (the server downloads its audio)
+ */
+export async function transcribeYouTube(url: string, mode: string = "meeting"): Promise<TranscriptionResponse> {
+  const response = await apiFetch("/transcribe-youtube/", {
     method: "POST",
-    body: formData,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url, mode }),
   });
+  return parseJsonResponse<TranscriptionResponse>(response, "Failed to transcribe YouTube video");
+}
 
-  const data = await response.json();
-
-  if (!response.ok || data.status === 'failed') {
-    throw new Error(data.error || "Failed to transcribe video file");
-  }
-
-  return data;
+/** Extract the video ID from a YouTube link, or null when it is not one. */
+export function getYouTubeVideoId(url: string): string | null {
+  const match = url.trim().match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/);
+  return match ? match[1] : null;
 }
 
 /**
  * Fetch a short-lived Deepgram access token for live browser streaming
  */
 export async function getDeepgramToken(): Promise<string> {
-  const response = await apiFetch(`/deepgram-token/`, { method: "POST" });
-  const data = await response.json();
-
-  if (!response.ok || data.status === 'failed' || !data.access_token) {
-    throw new Error(data.error || "Failed to get Deepgram token");
+  const response = await apiFetch("/deepgram-token/", { method: "POST" });
+  const data = await parseJsonResponse<{ access_token?: string }>(response, "Failed to get Deepgram token");
+  if (!data.access_token) {
+    throw new Error("Failed to get Deepgram token");
   }
-
   return data.access_token;
 }
 
@@ -88,7 +91,7 @@ export async function getDeepgramToken(): Promise<string> {
  * Summarize raw transcript text directly (useful for live speech where text already exists)
  */
 export async function summarizeTranscript(transcript: string, mode: string = "meeting"): Promise<{ corrected_transcript?: string; summary: string }> {
-  const response = await apiFetch(`/summarize-transcript/`, {
+  const response = await apiFetch("/summarize-transcript/", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -96,11 +99,21 @@ export async function summarizeTranscript(transcript: string, mode: string = "me
     body: JSON.stringify({ transcript, mode }),
   });
 
-  const data = await response.json();
+  return parseJsonResponse<{ corrected_transcript?: string; summary: string }>(response, "Failed to summarize transcript text");
+}
 
-  if (!response.ok || data.status === 'failed') {
-    throw new Error(data.error || "Failed to summarize transcript text");
-  }
+export type TranscriptView = "latin" | "english";
 
-  return data;
+/**
+ * Convert a transcript for display: Hindi in Latin letters ("latin") or translated ("english").
+ * Timestamps, speaker labels, and line breaks are kept.
+ */
+export async function transformTranscript(text: string, target: TranscriptView): Promise<string> {
+  const response = await apiFetch("/transform-transcript/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, target }),
+  });
+  const data = await parseJsonResponse<{ text: string }>(response, "Failed to convert transcript");
+  return data.text;
 }
