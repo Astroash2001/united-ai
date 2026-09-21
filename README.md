@@ -11,7 +11,6 @@
 - 🎧 **Audio & Video Transcription** — Upload **MP3, WAV, M4A, OGG** or **MP4, MOV, AVI, MKV** files up to 200MB, or paste a **YouTube link**. Transcribed by Deepgram with Hindi + English support and speaker labels; video and large files are compressed first. Produces timestamped transcripts, summaries, and chapter jump markers.
 - 🔤 **Transcript Tools** — Show Hindi in Latin letters (Hinglish) or translated to English, and export as PDF, Word, Markdown, TXT, SRT, or VTT.
 - 💬 **Document Chat** — Chat with a file or a web page link. Each question searches the whole document for relevant passages, remembers follow-ups, and can add cited web search results. Answers stream in.
-- 🗂️ **History** — Summaries, transcripts, and chats are saved per browser; reopen them or continue a chat from the History page.
 - 🧠 **Autonomous AI Brain Widget** — Retro terminal assistant (`UNITED_AI.BRAIN`) that answers questions about the app and navigates between pages.
 - 🎨 **Neo-Brutalist Retro Aesthetics** — Hard parchment frames, monospace typography (`Space Mono`, `VT323`, `Silkscreen`), interactive spring-physics wave canvas, custom scrollbars, and floating `[ ⬆ TOP ]` scroll controls.
 
@@ -122,8 +121,6 @@ Backend API will be running at **http://localhost:8000/api/**.
 | `/api/summarize-transcript/` | `POST` | Summary & speaker correction for a transcript | `json` (`transcript`) |
 | `/api/transform-transcript/` | `POST` | Hindi in Latin letters, or English translation | `json` (`text`, `target`: `latin`/`english`) |
 | `/api/deepgram-token/` | `POST` | Short-lived Deepgram token for live transcription | — |
-| `/api/history/` | `GET`/`POST` | List / save history entries (needs `X-Client-Id` header) | `json` |
-| `/api/history/<id>/` | `GET`/`PATCH`/`DELETE` | Read / update / delete one entry | `json` |
 | `/api/brain/` | `POST` | Autonomous AI Brain Q&A & Navigation | `json` (`question`, `current_route`) |
 
 All AI endpoints are rate-limited per IP (defaults: 60/hour text, 20/hour heavy uploads; configurable with `THROTTLE_*` env vars). Streaming responses are newline-delimited JSON: `{"delta": "..."}` pieces, then `{"done": true}` or `{"error": "..."}`.
@@ -159,7 +156,7 @@ united-ai/
 ├── README.md                   # Project documentation
 ├── backend/                    # Django REST API Backend
 │   ├── config/                 # Settings, URLs, WSGI configuration
-│   ├── summarizer/             # API views, history model, tests
+│   ├── summarizer/             # API views and tests
 │   │   └── utils/              # LLM client, retrieval, transcription, streaming, web sources
 │   ├── requirements.txt        # Python dependencies
 │   └── build.sh                # Production build script
@@ -167,8 +164,8 @@ united-ai/
     ├── src/
     │   ├── components/         # AIBrainWidget, TranscriptPanel, ChapterFlags, HeroSection, Header, Footer
     │   ├── hooks/              # useLiveTranscription (Deepgram + browser fallback)
-    │   ├── pages/              # Index, AudioTranscribe, VideoTranscribe, ChatWithDocument, History
-    │   ├── services/           # config.ts (shared fetch), api, chat, transcription, history, brain
+    │   ├── pages/              # Index, AudioTranscribe, VideoTranscribe, ChatWithDocument
+    │   ├── services/           # config.ts (shared fetch), api, chat, transcription, brain
     │   ├── utils/              # liveTranscript, transcriptExport, multilingual, pdfExport
     │   ├── test/               # Vitest unit tests
     │   └── index.css           # Neo-brutalist theme & custom scrollbar styles
@@ -190,7 +187,7 @@ united-ai/
 - [x] Single-command Render Deployment Setup
 - [x] Live Hindi + English transcription with speaker labels and clickable timestamps
 - [x] Large audio/video uploads (compress + split) and YouTube links
-- [x] Saved history, streaming answers, web page chat, web search
+- [x] Streaming answers, web page chat, web search
 - [x] Transcript exports (PDF, DOCX, Markdown, SRT, VTT) and Hinglish/English views
 
 ---

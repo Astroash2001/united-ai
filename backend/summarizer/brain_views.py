@@ -25,8 +25,7 @@ PROJECT PAGES & CAPABILITIES:
 1. Document Chat: Route "/chat-with-document". Chat with a PDF, TXT, or image (OCR), or with a web page link. Searches long documents for relevant passages, remembers follow-up questions, optional web search with cited sources.
 2. Audio Transcription: Route "/audio". Live microphone recording with real-time Hindi + English transcription, speaker labels, and clickable timestamps; or upload MP3, WAV, M4A, OGG up to 200MB. Summaries, chapters, Hinglish/English view, exports (PDF, Word, Markdown, SRT, VTT).
 3. Video Transcription: Route "/video". Upload MP4, MOV, AVI, MKV up to 200MB, or paste a YouTube link. Chapter markers, timestamped transcript, summaries, exports.
-4. History: Route "/history". Saved transcripts, summaries, and document chats for this browser; continue a saved chat.
-5. Home / Document Summary: Route "/". Landing page and document summarizer (PDF, TXT, image) with streaming summary.
+4. Home / Document Summary: Route "/". Landing page and document summarizer (PDF, TXT, image) with streaming summary.
 
 NAVIGATION RULES:
 1. DO NOT REROUTE IF USER IS ASKING A QUESTION: If the user asks "what is this page about?", "explain this tool", or asks questions about the current page ("{current_route}"), explain the current page clearly and set "target_route" to null.

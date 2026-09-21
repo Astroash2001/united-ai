@@ -9,7 +9,6 @@ from .transcription_views import (
     TranscribeYouTubeView, TransformTranscriptView,
 )
 from .brain_views import AIBrainView
-from .history_views import HistoryListView, HistoryDetailView
 
 app_name = 'summarizer'
 
@@ -25,7 +24,5 @@ urlpatterns = [
     path('transform-transcript/', TransformTranscriptView.as_view(), name='transform_transcript'),
     path('deepgram-token/', DeepgramTokenView.as_view(), name='deepgram_token'),
     path('brain/', AIBrainView.as_view(), name='brain'),
-    path('history/', HistoryListView.as_view(), name='history_list'),
-    path('history/<int:entry_id>/', HistoryDetailView.as_view(), name='history_detail'),
 ]
 

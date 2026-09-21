@@ -1,5 +1,5 @@
 """
-Tests for retrieval, transcription helpers, streaming, history, throttling,
+Tests for retrieval, transcription helpers, streaming, throttling,
 and the external-service endpoints (with network calls mocked).
 
 Run with: python manage.py test summarizer
@@ -18,7 +18,6 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import HistoryEntry
 from .utils.audio_transcriber import (
     TranscriptionError, audio_transcriber, format_timestamp, parse_chapters, prepare_audio, utterances_to_lines,
 )
@@ -204,56 +203,6 @@ class StreamingTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(lines, [{"delta": "The sky "}, {"delta": "is green."}, {"done": True}])
-
-
-class HistoryAPITests(APITestCase):
-    def setUp(self):
-        self.client_id = str(uuid.uuid4())
-        self.headers = {"HTTP_X_CLIENT_ID": self.client_id}
-
-    def create(self, **fields):
-        data = {"kind": "audio", "title": "Meeting", "transcript": "[00:00] Hello", **fields}
-        return self.client.post("/api/history/", data, format="json", **self.headers)
-
-    def test_requires_client_id(self):
-        response = self.client.get("/api/history/")
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_create_list_get_update_delete(self):
-        created = self.create()
-        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
-        entry_id = created.data["entry"]["id"]
-
-        listed = self.client.get("/api/history/", **self.headers)
-        self.assertEqual([e["id"] for e in listed.data["entries"]], [entry_id])
-        self.assertNotIn("transcript", listed.data["entries"][0])
-
-        messages = [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}]
-        patched = self.client.patch(f"/api/history/{entry_id}/", {"messages": messages}, format="json", **self.headers)
-        self.assertEqual(patched.data["entry"]["messages"], messages)
-
-        deleted = self.client.delete(f"/api/history/{entry_id}/", **self.headers)
-        self.assertEqual(deleted.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(HistoryEntry.objects.exists())
-
-    def test_other_client_cannot_read_or_delete(self):
-        entry_id = self.create().data["entry"]["id"]
-        other = {"HTTP_X_CLIENT_ID": str(uuid.uuid4())}
-        self.assertEqual(self.client.get(f"/api/history/{entry_id}/", **other).status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(self.client.delete(f"/api/history/{entry_id}/", **other).status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(self.client.get("/api/history/", **other).data["entries"], [])
-
-    def test_invalid_messages_rejected(self):
-        response = self.create(messages=[{"role": "system", "content": "x"}])
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("messages", response.data["error"])
-
-    @patch("summarizer.history_views.MAX_ENTRIES_PER_CLIENT", 2)
-    def test_oldest_entries_pruned(self):
-        for title in ["one", "two", "three"]:
-            self.create(title=title)
-        titles = [e["title"] for e in self.client.get("/api/history/", **self.headers).data["entries"]]
-        self.assertEqual(titles, ["three", "two"])
 
 
 class ThrottleTests(APITestCase):

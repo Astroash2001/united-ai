@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { ArrowRight, Copy } from "lucide-react";
 import Waves from "@/components/Waves";
 import { summarizeFile } from "@/services/api";
-import { saveHistory } from "@/services/history-api";
 
 const HeroSection = () => {
   const navigate = useNavigate();
@@ -41,7 +40,6 @@ const HeroSection = () => {
       // Summary streams into view as it is generated.
       const summaryText = await summarizeFile(file, setSummary);
       setSummary(summaryText);
-      saveHistory({ kind: "document", title: file.name, summary: summaryText });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
       setError(errorMessage);

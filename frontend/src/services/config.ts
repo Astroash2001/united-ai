@@ -7,33 +7,9 @@ export const API_BASE_URL = isLocalhost
   ? (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api')
   : (import.meta.env.VITE_API_URL || 'https://ai-summarizer-pro-omy1.onrender.com/api');
 
-const CLIENT_ID_KEY = "UNITED_AI_CLIENT_ID";
-let memoryClientId = "";
-
-/**
- * Anonymous per-browser ID. Scopes saved history to this browser.
- * Not a login: anyone who copies the ID can read the same history.
- */
-export function getClientId(): string {
-  try {
-    let id = localStorage.getItem(CLIENT_ID_KEY);
-    if (!id) {
-      id = crypto.randomUUID();
-      localStorage.setItem(CLIENT_ID_KEY, id);
-    }
-    return id;
-  } catch {
-    // Storage blocked (private mode): keep one ID for this page session.
-    if (!memoryClientId) memoryClientId = crypto.randomUUID();
-    return memoryClientId;
-  }
-}
-
-/** fetch() against the backend API, with the client ID header attached. */
+/** fetch() against the backend API. */
 export function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(init.headers);
-  headers.set("X-Client-Id", getClientId());
-  return fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+  return fetch(`${API_BASE_URL}${path}`, init);
 }
 
 /** Parse a JSON response and throw its `error` message when the request failed. */

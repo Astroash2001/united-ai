@@ -12,7 +12,6 @@ import {
   transcribeVideo,
   transcribeYouTube,
 } from "@/services/transcription-api";
-import { saveHistory } from "@/services/history-api";
 
 type Source = "file" | "youtube";
 
@@ -67,13 +66,6 @@ const VideoTranscribe = () => {
     try {
       const data = await transcribeVideo(file);
       showResult(data, file.name);
-      saveHistory({
-        kind: "video",
-        title: file.name,
-        transcript: data.transcript,
-        summary: data.summary || "",
-        chapters: data.chapters || [],
-      });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to transcribe video file.";
       setError(message);
@@ -98,14 +90,6 @@ const VideoTranscribe = () => {
     try {
       const data = await transcribeYouTube(youtubeUrl.trim());
       showResult(data, data.filename || "YouTube video");
-      saveHistory({
-        kind: "youtube",
-        title: data.filename || "YouTube video",
-        transcript: data.transcript,
-        summary: data.summary || "",
-        chapters: data.chapters || [],
-        source_url: youtubeUrl.trim(),
-      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to transcribe YouTube video.");
     } finally {
