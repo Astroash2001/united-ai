@@ -58,24 +58,6 @@ export function transcribeVideo(file: File, options: TranscribeOptions = {}): Pr
 }
 
 /**
- * Transcribe a YouTube video by link (the server downloads its audio)
- */
-export async function transcribeYouTube(url: string, mode: string = "meeting"): Promise<TranscriptionResponse> {
-  const response = await apiFetch("/transcribe-youtube/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url, mode }),
-  });
-  return parseJsonResponse<TranscriptionResponse>(response, "Failed to transcribe YouTube video");
-}
-
-/** Extract the video ID from a YouTube link, or null when it is not one. */
-export function getYouTubeVideoId(url: string): string | null {
-  const match = url.trim().match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/);
-  return match ? match[1] : null;
-}
-
-/**
  * Fetch a short-lived Deepgram access token for live browser streaming
  */
 export async function getDeepgramToken(): Promise<string> {

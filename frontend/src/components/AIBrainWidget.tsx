@@ -275,7 +275,7 @@ export const AIBrainWidget: React.FC = () => {
               <Mic className="w-2.5 h-2.5" /> 🎙️ Audio
             </button>
             <button
-              onClick={() => handleSendQuery("Summarize YouTube video")}
+              onClick={() => handleSendQuery("Take me to video transcription")}
               className="px-2 py-0.5 bg-[#E3DFCE] text-[#1C1C1C] border border-[#1C1C1C] hover:bg-[#1C1C1C] hover:text-[#E3DFCE] flex items-center gap-1 shrink-0 font-bold"
             >
               <Video className="w-2.5 h-2.5" /> 🎥 Video

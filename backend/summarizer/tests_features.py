@@ -23,7 +23,6 @@ from .utils.audio_transcriber import (
 )
 from .utils.retrieval import chunk_text, rank_chunks, select_relevant_context, tokenize
 from .utils.transcript_transform import _batches, transform_transcript
-from .utils.youtube import is_youtube_url
 
 
 class RetrievalTests(SimpleTestCase):
@@ -145,12 +144,6 @@ class TranscriptionHelperTests(SimpleTestCase):
             self._write_wav(path, 1)
             error = audio_transcriber.transcribe_path(path, summarize=False)[3]
         self.assertIn("DEEPGRAM_API_KEY", error)
-
-    def test_youtube_url_check(self):
-        self.assertTrue(is_youtube_url("https://www.youtube.com/watch?v=jNQXAC9IVRw"))
-        self.assertTrue(is_youtube_url("https://youtu.be/jNQXAC9IVRw"))
-        self.assertFalse(is_youtube_url("https://evil.example/youtube.com/watch?v=x"))
-        self.assertFalse(is_youtube_url("file:///etc/passwd"))
 
 
 class TransformTests(SimpleTestCase):
