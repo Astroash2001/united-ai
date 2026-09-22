@@ -2,16 +2,13 @@
 API Views for Audio and Video Transcription with Chapter Flags.
 """
 import logging
-import shutil
-import tempfile
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 
 from django.conf import settings
-from .utils.audio_transcriber import transcribe_audio_video, audio_transcriber
-from .utils.youtube import is_youtube_url, download_youtube_audio
+from .utils.audio_transcriber import transcribe_audio_video
 from .utils.llm_client import get_llm_client
 from .utils.transcript_transform import transform_transcript
 
@@ -81,49 +78,6 @@ class TranscribeVideoView(_TranscribeUploadView):
     POST /api/transcribe-video/
     """
     missing_file_error = "No video file provided. Field 'file' is required."
-
-
-class TranscribeYouTubeView(APIView):
-    """
-    API endpoint for YouTube video transcription with Timestamp Chapters.
-
-    POST /api/transcribe-youtube/
-    Body: {"url": "https://www.youtube.com/watch?v=...", "mode": "meeting"}
-    """
-    throttle_scope = 'ai_heavy'
-
-    def post(self, request):
-        url = str(request.data.get('url', '')).strip()
-        mode = request.data.get('mode', 'meeting')
-
-        if not is_youtube_url(url):
-            return Response(
-                {"error": "Please provide a valid YouTube video link.", "status": "failed"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        work_dir = tempfile.mkdtemp(prefix="youtube_")
-        try:
-            audio_path, title, error = download_youtube_audio(url, work_dir)
-            if error:
-                return Response({"error": error, "status": "failed"}, status=status.HTTP_502_BAD_GATEWAY)
-
-            transcript, summary, chapters, error = audio_transcriber.transcribe_path(audio_path, mode=mode)
-            if error:
-                return Response({"error": error, "status": "failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-            return Response(
-                {
-                    "transcript": transcript,
-                    "summary": summary,
-                    "chapters": chapters,
-                    "filename": title,
-                    "status": "success"
-                },
-                status=status.HTTP_200_OK
-            )
-        finally:
-            shutil.rmtree(work_dir, ignore_errors=True)
 
 
 class DeepgramTokenView(APIView):

@@ -8,7 +8,7 @@
 
 - 📄 **Document Summarization & OCR** — Upload **PDF**, **TXT**, or **Images (PNG, JPG, WEBP)** up to 10MB. Automatic OCR, streaming summary, and two-pass summaries for long documents.
 - 🎙️ **Live Hindi + English Transcription** — Record in the browser and see words appear as you speak. Deepgram handles code-switched Hindi and English, labels speakers, and adds clickable timestamps that seek the recording.
-- 🎧 **Audio & Video Transcription** — Upload **MP3, WAV, M4A, OGG** or **MP4, MOV, AVI, MKV** files up to 200MB, or paste a **YouTube link**. Transcribed by Deepgram with Hindi + English support and speaker labels; video and large files are compressed first. Produces timestamped transcripts, summaries, and chapter jump markers.
+- 🎧 **Audio & Video Transcription** — Upload **MP3, WAV, M4A, OGG** or **MP4, MOV, AVI, MKV** files up to 200MB. Transcribed by Deepgram with Hindi + English support and speaker labels; video and large files are compressed first. Produces timestamped transcripts, summaries, and chapter jump markers.
 - 🔤 **Transcript Tools** — Show Hindi in Latin letters (Hinglish) or translated to English, and export as PDF, Word, Markdown, TXT, SRT, or VTT.
 - 💬 **Document Chat** — Chat with a file or a web page link. Each question searches the whole document for relevant passages, remembers follow-ups, and can add cited web search results. Answers stream in.
 - 🧠 **Autonomous AI Brain Widget** — Retro terminal assistant (`UNITED_AI.BRAIN`) that answers questions about the app and navigates between pages.
@@ -29,7 +29,7 @@
 - **Django 5.0** + **Django REST Framework** — API engine
 - **LLM gateway** (OpenAI-compatible, e.g. Experiential Labs) — summaries, chat, AI Brain, OCR, transliteration
 - **Deepgram nova-3** — live and uploaded Hindi + English transcription with speaker labels
-- **ffmpeg** (bundled via `imageio-ffmpeg`) + **yt-dlp** — audio extraction, compression, YouTube downloads
+- **ffmpeg** (bundled via `imageio-ffmpeg`) — audio extraction and compression
 - **PyPDF** + vision-model OCR — Multi-format text extraction
 - **Jina Reader** / **Tavily** (optional) — web page reading and web search for document chat
 - **PostgreSQL** — Production database (SQLite for local dev)
@@ -117,7 +117,6 @@ Backend API will be running at **http://localhost:8000/api/**.
 | `/api/chat-document/` | `POST` | Document Q&A; optional web search, follow-up history, streaming | `json` (`question`, `context`, `history`, `web_search`, `stream`) |
 | `/api/transcribe-audio/` | `POST` | Transcribe audio (up to 200MB) | `multipart/form-data` (`file`, `mode`, `summarize`) |
 | `/api/transcribe-video/` | `POST` | Transcribe video (up to 200MB) | `multipart/form-data` (`file`, `mode`, `summarize`) |
-| `/api/transcribe-youtube/` | `POST` | Transcribe a YouTube video | `json` (`url`, `mode`) |
 | `/api/summarize-transcript/` | `POST` | Summary & speaker correction for a transcript | `json` (`transcript`) |
 | `/api/transform-transcript/` | `POST` | Hindi in Latin letters, or English translation | `json` (`text`, `target`: `latin`/`english`) |
 | `/api/deepgram-token/` | `POST` | Short-lived Deepgram token for live transcription | — |
@@ -180,13 +179,13 @@ united-ai/
 - [x] Document Summarization with OCR (PDF, TXT, PNG, JPG, WEBP)
 - [x] Interactive RAG Document Q&A Chat
 - [x] Audio Speech Engine (Deepgram / Live Recording / Chapter Flags)
-- [x] Video Media Parser & YouTube Summarizer
+- [x] Video Media Parser
 - [x] Autonomous AI Brain Navigation Agent (`UNITED_AI.BRAIN`)
 - [x] Direct Page Rerouting without Toast Pop-ups
 - [x] Floating Retro Scroll-To-Top Controls
 - [x] Single-command Render Deployment Setup
 - [x] Live Hindi + English transcription with speaker labels and clickable timestamps
-- [x] Large audio/video uploads (compress + split) and YouTube links
+- [x] Large audio/video uploads (compressed before transcription)
 - [x] Streaming answers, web page chat, web search
 - [x] Transcript exports (PDF, DOCX, Markdown, SRT, VTT) and Hinglish/English views
 

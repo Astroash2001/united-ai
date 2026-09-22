@@ -6,7 +6,7 @@ from .views import SummarizeDocumentView
 from .chat_views import ExtractTextView, ExtractUrlView, ChatWithDocumentView
 from .transcription_views import (
     TranscribeAudioView, TranscribeVideoView, SummarizeTranscriptView, DeepgramTokenView,
-    TranscribeYouTubeView, TransformTranscriptView,
+    TransformTranscriptView,
 )
 from .brain_views import AIBrainView
 
@@ -19,7 +19,6 @@ urlpatterns = [
     path('chat-document/', ChatWithDocumentView.as_view(), name='chat_document'),
     path('transcribe-audio/', TranscribeAudioView.as_view(), name='transcribe_audio'),
     path('transcribe-video/', TranscribeVideoView.as_view(), name='transcribe_video'),
-    path('transcribe-youtube/', TranscribeYouTubeView.as_view(), name='transcribe_youtube'),
     path('summarize-transcript/', SummarizeTranscriptView.as_view(), name='summarize_transcript'),
     path('transform-transcript/', TransformTranscriptView.as_view(), name='transform_transcript'),
     path('deepgram-token/', DeepgramTokenView.as_view(), name='deepgram_token'),
